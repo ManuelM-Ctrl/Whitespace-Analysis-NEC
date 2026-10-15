@@ -1,0 +1,3298 @@
+<!DOCTYPE html>
+<html lang="en" class="sap-horizon">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Whitespace Analyzer — SAP</title>
+<style>/*__CSS_HORIZON__*/</style>
+<style>/*__CSS_FD__*/</style>
+<style>
+/* ── Layout shell ── */
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; height: 100%; background: var(--sapBackgroundColor, #f2f2f2); }
+#app { display: flex; flex-direction: column; height: 100%; min-width: 1024px; font-family: var(--sapFontFamily, "72", Arial, sans-serif); font-size: var(--sapFontSize, 0.875rem); color: var(--sapTextColor, #32363a); }
+
+/* ── Shell / top bar ── */
+.ws-shell { background: var(--sapShellColor, #354a5e); display: flex; align-items: center; padding: 0 1rem; height: 2.75rem; flex-shrink: 0; gap: 0.75rem; }
+.ws-shell__title { color: #fff; font-size: 1rem; font-weight: 700; letter-spacing: .02em; white-space: nowrap; }
+.ws-shell__sub { color: rgba(255,255,255,.65); font-size: .8rem; margin-left: .5rem; }
+
+/* ── Nav bar ── */
+.ws-nav { background: var(--sapBaseColor, #fff); border-bottom: 1px solid var(--sapList_BorderColor, #e4e4e4); display: flex; align-items: stretch; padding: 0 1rem; flex-shrink: 0; gap: 0; }
+.ws-nav__item { padding: .6rem 1rem; cursor: pointer; font-size: .875rem; color: var(--sapTextColor, #32363a); border-bottom: 2px solid transparent; white-space: nowrap; user-select: none; }
+.ws-nav__item:hover { background: var(--sapList_Hover_Background, #f5f5f5); }
+.ws-nav__item.is-active { color: var(--sapSelectedColor, #0070f2); border-bottom-color: var(--sapSelectedColor, #0070f2); font-weight: 600; }
+.ws-nav__item.is-disabled { color: var(--sapContent_DisabledTextColor, #89919a); cursor: default; pointer-events: none; }
+
+/* ── Filter bar ── */
+.ws-filters { background: var(--sapBaseColor, #fff); border-bottom: 1px solid var(--sapList_BorderColor, #e4e4e4); flex-shrink: 0; padding: .25rem 1rem; display: flex; align-items: flex-end; gap: .5rem; flex-wrap: wrap; }
+.ws-filter-col { display: flex; flex-direction: column; gap: .1rem; }
+.ws-filters__label { font-size: .6rem; color: var(--sapContent_LabelColor, #6a6d70); white-space: nowrap; text-transform: uppercase; letter-spacing: .03em; font-weight: 600; }
+.ws-filter-group--inline { display: flex; align-items: center; gap: .25rem; }
+.ws-select { height: 1.5rem; padding: 0 .35rem; border: 1px solid var(--sapField_BorderColor, #89919a); border-radius: var(--sapElement_BorderCornerRadius, .25rem); background: var(--sapField_Background, #fff); font-size: .725rem; color: var(--sapTextColor, #32363a); cursor: pointer; min-width: 100px; }
+.ws-select:focus { outline: 2px solid var(--sapField_Hover_BorderColor, #0070f2); outline-offset: -2px; }
+.ws-cb-label { display: flex; align-items: center; gap: .3rem; font-size: .8125rem; cursor: pointer; user-select: none; }
+.ws-toggle { display: flex; align-items: center; gap: .4rem; font-size: .8125rem; cursor: pointer; user-select: none; }
+.ws-toggle input[type=checkbox] { width: 2rem; height: 1.1rem; appearance: none; -webkit-appearance: none; border-radius: .6rem; background: var(--sapButton_Lite_Background, #e4e4e4); cursor: pointer; position: relative; transition: background .2s; flex-shrink: 0; border: 1px solid var(--sapField_BorderColor, #89919a); }
+.ws-toggle input[type=checkbox]:checked { background: var(--sapSelectedColor, #0070f2); border-color: var(--sapSelectedColor, #0070f2); }
+.ws-toggle input[type=checkbox]::after { content: ""; width: .85rem; height: .85rem; border-radius: 50%; background: #fff; position: absolute; top: .1rem; left: .1rem; transition: left .2s; }
+.ws-toggle input[type=checkbox]:checked::after { left: calc(100% - .95rem); }
+.ws-btn-reset { padding: .2rem .5rem; font-size: .7rem; background: none; border: 1px solid var(--sapButton_BorderColor, #0070f2); color: var(--sapButton_TextColor, #0070f2); border-radius: var(--sapElement_BorderCornerRadius, .25rem); cursor: pointer; }
+.ws-btn-reset:hover { background: var(--sapButton_Lite_Hover_Background, #e8f0fe); }
+
+/* ── Collapsible filter panel ── */
+.ws-filter-bar { background: var(--sapBaseColor, #fff); border-bottom: 1px solid var(--sapList_BorderColor, #e4e4e4); flex-shrink: 0; display: flex; align-items: center; gap: .5rem; padding: .3rem 1rem; flex-wrap: wrap; min-height: 2.25rem; }
+.ws-filter-toggle { display: flex; align-items: center; gap: .35rem; padding: .2rem .65rem; font-size: .8rem; font-weight: 600; background: none; border: 1px solid var(--sapField_BorderColor, #89919a); border-radius: .75rem; color: var(--sapTextColor, #32363a); cursor: pointer; white-space: nowrap; font-family: inherit; }
+.ws-filter-toggle:hover { background: var(--sapList_Hover_Background, #f5f5f5); }
+.ws-filter-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 1.15rem; height: 1.15rem; padding: 0 .25rem; background: var(--sapSelectedColor, #0070f2); color: #fff; border-radius: .6rem; font-size: .65rem; font-weight: 700; line-height: 1; }
+.ws-filter-pills { display: flex; align-items: center; flex-wrap: wrap; gap: .25rem; flex: 1; }
+.ws-filter-pill { display: inline-flex; align-items: center; gap: .2rem; padding: .15rem .45rem; background: #eef3ff; border: 1px solid #c0cce8; border-radius: .75rem; font-size: .7rem; color: var(--sapTextColor, #32363a); white-space: nowrap; }
+.ws-filter-pill button { background: none; border: none; padding: 0 0 0 .1rem; margin: 0; font-size: .8rem; color: var(--sapContent_LabelColor, #6a6d70); cursor: pointer; line-height: 1; display: flex; align-items: center; }
+.ws-filter-pill button:hover { color: var(--sapNegativeColor, #bb0000); }
+.ws-filter-chevron { background: none; border: none; padding: .1rem .3rem; font-size: .75rem; color: var(--sapContent_LabelColor, #6a6d70); cursor: pointer; font-family: inherit; }
+.ws-filter-chevron:hover { color: var(--sapTextColor, #32363a); }
+.ws-filter-panel { background: var(--sapBaseColor, #fff); border-bottom: 1px solid var(--sapList_BorderColor, #e4e4e4); flex-shrink: 0; padding: .6rem 1rem; display: flex; flex-wrap: wrap; gap: .75rem 1.25rem; align-items: flex-start; }
+.ws-filter-group { display: flex; flex-direction: column; gap: .2rem; }
+.ws-filter-group-label { font-size: .6rem; color: var(--sapContent_LabelColor, #6a6d70); text-transform: uppercase; letter-spacing: .04em; font-weight: 700; padding-bottom: .2rem; border-bottom: 1px solid var(--sapList_BorderColor, #e4e4e4); margin-bottom: .1rem; white-space: nowrap; }
+.ws-filter-group-body { display: flex; flex-wrap: wrap; gap: .3rem .5rem; align-items: flex-end; }
+/* ── Multi-select dropdowns ── */
+.ws-multiselect { position: relative; }
+.ws-ms-trigger { display: flex; align-items: center; justify-content: space-between; gap: .3rem; height: 1.5rem; padding: 0 .35rem; min-width: 100px; border: 1px solid var(--sapField_BorderColor, #89919a); border-radius: var(--sapElement_BorderCornerRadius, .25rem); background: var(--sapField_Background, #fff); font-size: .725rem; color: var(--sapTextColor, #32363a); cursor: pointer; user-select: none; }
+.ws-ms-trigger.active { outline: 2px solid var(--sapField_Hover_BorderColor, #0070f2); outline-offset: -2px; }
+.ws-ms-trigger:hover { background: var(--sapList_Hover_Background, #f5f5f5); }
+.ws-ms-label { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ws-ms-caret { font-size: .6rem; color: var(--sapContent_LabelColor, #6a6d70); flex-shrink: 0; }
+.ws-ms-dropdown { position: absolute; top: calc(100% + 2px); left: 0; z-index: 200; background: var(--sapBaseColor, #fff); border: 1px solid var(--sapList_BorderColor, #e4e4e4); border-radius: var(--sapElement_BorderCornerRadius, .25rem); box-shadow: 0 4px 12px rgba(0,0,0,.12); min-width: 160px; max-height: 220px; overflow-y: auto; padding: .2rem 0; }
+.ws-ms-option { display: flex; align-items: center; gap: .4rem; padding: .25rem .6rem; font-size: .75rem; cursor: pointer; white-space: nowrap; }
+.ws-ms-option:hover { background: var(--sapList_Hover_Background, #f5f5f5); }
+.ws-ms-option input[type=checkbox] { cursor: pointer; accent-color: var(--sapSelectedColor, #0070f2); }
+.ws-l1-mode-toggle { display: flex; border: 1px solid var(--sapField_BorderColor, #89919a); border-radius: .25rem; overflow: hidden; margin-top: .15rem; }
+.ws-l1-mode-btn { flex: 1; padding: .1rem .35rem; font-size: .65rem; font-weight: 600; background: none; border: none; border-right: 1px solid var(--sapField_BorderColor, #89919a); cursor: pointer; color: var(--sapContent_LabelColor, #6a6d70); font-family: inherit; }
+.ws-l1-mode-btn:last-child { border-right: none; }
+.ws-l1-mode-btn.active { background: var(--sapSelectedColor, #0070f2); color: #fff; }
+
+/* ── Main content area ── */
+.ws-main { flex: 1; overflow: auto; }
+.ws-view { padding: 1rem; display: none; }
+.ws-view.is-active { display: block; }
+
+/* ── KPI tiles ── */
+.ws-kpi-row { display: grid; grid-template-columns: repeat(6, 1fr); gap: .75rem; margin-bottom: 1rem; }
+.ws-kpi { background: var(--sapBaseColor, #fff); border: 1px solid var(--sapList_BorderColor, #e4e4e4); border-radius: .375rem; padding: .875rem 1rem; }
+.ws-kpi__label { font-size: .75rem; color: var(--sapContent_LabelColor, #6a6d70); margin-bottom: .2rem; }
+.ws-kpi__value { font-size: 1.5rem; font-weight: 700; color: var(--sapTextColor, #32363a); }
+
+/* ── Cards / panels ── */
+.ws-card { background: var(--sapBaseColor, #fff); border: 1px solid var(--sapList_BorderColor, #e4e4e4); border-radius: .375rem; overflow: hidden; margin-bottom: .75rem; }
+.ws-card__header { padding: .6rem 1rem; border-bottom: 1px solid var(--sapList_BorderColor, #e4e4e4); font-weight: 600; font-size: .875rem; display: flex; align-items: center; justify-content: space-between; gap: .5rem; background: var(--sapList_HeaderBackground, #fafafa); }
+.ws-card__body { padding: .75rem 1rem; }
+
+/* ── Two-column layout ── */
+.ws-two-col { display: grid; gap: .75rem; }
+.ws-two-col--2080 { grid-template-columns: 220px 1fr; }
+.ws-two-col--3070 { grid-template-columns: 280px 1fr; }
+
+/* ── Tables ── */
+.ws-table-wrap { overflow: auto; }
+.ws-table { width: 100%; border-collapse: collapse; font-size: .8125rem; }
+.ws-table th { background: var(--sapList_HeaderBackground, #fafafa); padding: .4rem .6rem; text-align: left; font-weight: 600; border-bottom: 2px solid var(--sapList_BorderColor, #e4e4e4); white-space: nowrap; position: sticky; top: 0; z-index: 2; }
+.ws-table th.sortable { cursor: pointer; user-select: none; }
+.ws-table th.sortable:hover { background: var(--sapList_Hover_Background, #f5f5f5); }
+.ws-table th .sort-arrow { margin-left: .25rem; opacity: .4; }
+.ws-table th.sort-asc .sort-arrow::after { content: "▲"; }
+.ws-table th.sort-desc .sort-arrow::after { content: "▼"; }
+.ws-table td { padding: .35rem .6rem; border-bottom: 1px solid var(--sapList_BorderColor, #e4e4e4); vertical-align: middle; }
+.ws-table tr:last-child td { border-bottom: none; }
+.ws-table tr:hover td { background: var(--sapList_Hover_Background, #f5f5f5); }
+.ws-table tr.clickable { cursor: pointer; }
+.ws-table__empty { text-align: center; padding: 2rem; color: var(--sapContent_LabelColor, #6a6d70); }
+
+/* ── Badges ── */
+.ws-badge { display: inline-flex; align-items: center; padding: .1rem .4rem; border-radius: .75rem; font-size: .7rem; font-weight: 600; white-space: nowrap; line-height: 1.4; }
+.ws-badge--covered { background: #e8f5e9; color: #188918; border: 1px solid #b2dfb2; }
+.ws-badge--project { background: #e3f0ff; color: #0064d9; border: 1px solid #9dc8ff; }
+.ws-badge--prospect{ background: #e8f0fe; color: #0057b8; border: 1px solid #b3cdfa; }
+.ws-badge--shelfware{background: #f5f0ff; color: #6b4f9e; border: 1px solid #d0b8f5; }
+.ws-badge--whitespace { background: #f5f5f5; color: #6a6d70; border: 1px solid #d3d3d3; }
+.ws-badge--ws-veryhigh { background: #fdecea; color: #a93226; border: 1px solid #f1aaa5; }
+.ws-badge--ws-high { background: #fff3e0; color: #c55a0a; border: 1px solid #f9d4ab; }
+
+/* ── Quick Start tabs ── */
+.qs-tab { background: none; border: none; border-bottom: 2px solid transparent; padding: .55rem 1rem; font-size: .8rem; font-family: inherit; color: var(--sapTextColor, #32363a); cursor: pointer; white-space: nowrap; margin-bottom: -2px; }
+.qs-tab:hover { background: var(--sapList_Hover_Background, #f5f5f5); }
+.qs-tab.is-active { color: var(--sapSelectedColor, #0070f2); border-bottom-color: var(--sapSelectedColor, #0070f2); font-weight: 600; }
+
+/* ── Gap bucket cell colors (SAP blue quintiles) ── */
+.gap-q1 { background: #e8f3ff !important; color: #0064d9; }
+.gap-q2 { background: #b3d4f5 !important; color: #0057b8; }
+.gap-q3 { background: #5ba0e0 !important; color: #fff; }
+.gap-q4 { background: #1a6cb5 !important; color: #fff; }
+.gap-q5 { background: #003d8f !important; color: #fff; }
+.ws-gap-legend { display: flex; align-items: center; gap: .5rem 1rem; flex-wrap: wrap; font-size: .72rem; color: var(--sapContent_LabelColor, #6a6d70); padding: .4rem .5rem .3rem; }
+.ws-gap-legend__swatch { display: inline-block; width: .75rem; height: .75rem; border-radius: .2rem; vertical-align: middle; margin-right: .2rem; border: 1px solid rgba(0,0,0,.1); }
+.ws-gap-legend__label { font-size: .72rem; font-weight: 600; margin-right: .1rem; }
+
+/* ── Heatmap table ── */
+.ws-heatmap { width: 100%; border-collapse: collapse; font-size: .75rem; }
+.ws-heatmap th, .ws-heatmap td { border: 1px solid var(--sapList_BorderColor, #e4e4e4); padding: .3rem .4rem; text-align: center; white-space: nowrap; }
+.ws-heatmap th { background: var(--sapList_HeaderBackground, #fafafa); font-weight: 600; }
+.ws-heatmap th.row-header { text-align: left; min-width: 140px; }
+.ws-heatmap td.row-header { text-align: left; font-weight: 500; background: var(--sapList_HeaderBackground, #fafafa); }
+.ws-heatmap td.hm-cell { cursor: pointer; transition: opacity .15s; }
+.ws-heatmap td.hm-cell:hover { opacity: .8; outline: 2px solid var(--sapSelectedColor, #0070f2); outline-offset: -2px; }
+
+
+
+/* ── Summary strip ── */
+.ws-summary-strip { display: flex; gap: .75rem; flex-wrap: wrap; margin-bottom: .75rem; }
+.ws-summary-tile { background: var(--sapBaseColor, #fff); border: 1px solid var(--sapList_BorderColor, #e4e4e4); border-radius: .375rem; padding: .5rem .875rem; text-align: center; min-width: 100px; }
+.ws-summary-tile__val { font-size: 1.25rem; font-weight: 700; }
+.ws-summary-tile__lbl { font-size: .7rem; color: var(--sapContent_LabelColor, #6a6d70); }
+
+/* ── Account detail ── */
+.ws-acct-header { background: var(--sapBaseColor, #fff); border: 1px solid var(--sapList_BorderColor, #e4e4e4); border-radius: .375rem; padding: .875rem 1rem; margin-bottom: .75rem; }
+.ws-acct-header h1 { margin: 0 0 .3rem; font-size: 1.1rem; font-weight: 700; }
+.ws-acct-meta { font-size: .8rem; color: var(--sapContent_LabelColor, #6a6d70); display: flex; flex-wrap: wrap; gap: .4rem 1.2rem; }
+.ws-acct-meta strong { color: var(--sapTextColor, #32363a); }
+.ws-coverage-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: .5rem; margin-bottom: .75rem; }
+.ws-cov-cell { background: var(--sapBaseColor, #fff); border: 1px solid var(--sapList_BorderColor, #e4e4e4); border-radius: .375rem; padding: .55rem .75rem; display: flex; flex-direction: column; gap: .3rem; }
+.ws-cov-cell__header { display: flex; flex-direction: column; gap: .15rem; }
+.ws-cov-cell__meta { font-size: .72rem; color: var(--sapContent_LabelColor, #6a6d70); font-weight: 400; }.ws-cov-cell__l1 { font-weight: 700; font-size: .82rem; color: var(--sapTextColor, #32363a); flex-shrink: 0; }
+.ws-cov-cell__divider { border: none; border-top: 1px solid var(--sapList_BorderColor, #e4e4e4); margin: 0; }
+.ws-cov-cell__l2s { margin-top: .45rem; display: flex; flex-wrap: wrap; gap: .25rem; }
+.ws-badge--l2-covered   { background:#e8f5e9; color:#188918; border:1px solid #b2dfb2; padding:.1rem .45rem; border-radius:.75rem; font-size:.68rem; font-weight:600; }
+.ws-badge--l2-project   { background:#e3f0ff; color:#0064d9; border:1px solid #9dc8ff; padding:.1rem .45rem; border-radius:.75rem; font-size:.68rem; font-weight:600; }
+.ws-badge--l2-shelfware { background:#f3eafa; color:#7b4fa6; border:1px solid #cba8e8; padding:.1rem .45rem; border-radius:.75rem; font-size:.68rem; font-weight:600; }
+.ws-badge--l2-whitespace{ background:#fafafa; color:#8c8c8c; border:1px solid #d9d9d9; padding:.1rem .45rem; border-radius:.75rem; font-size:.68rem; font-weight:600; }
+.ws-badge--l2-parent-owned { background:#e8e8e8; color:#767676; border:1px solid #d4d4d4; padding:.1rem .45rem; border-radius:.75rem; font-size:.68rem; font-weight:600; }
+.ws-cov-l2-legend { display:flex; flex-wrap:wrap; gap:.3rem .8rem; font-size:.7rem; color:var(--sapContent_LabelColor,#6a6d70); margin-bottom:.5rem; align-items:center; }
+.ws-cov-l2-legend__swatch { display:inline-block; width:.55rem; height:.55rem; border-radius:50%; margin-right:.25rem; vertical-align:middle; }
+
+/* ── Portfolio / Cluster view ── */
+.ws-badge--covered-l1 { background:#e8f5e9; color:#188918; border:1px solid #b2dfb2; display:inline-flex; align-items:center; padding:.1rem .4rem; border-radius:.75rem; font-size:.7rem; font-weight:600; }
+.ws-badge--target-l1  { background:#fff3e0; color:#c55a0a; border:1px solid #f9d4ab; display:inline-flex; align-items:center; padding:.1rem .4rem; border-radius:.75rem; font-size:.7rem; font-weight:600; }
+.ws-cluster-header { background:var(--sapBaseColor,#fff); border:1px solid var(--sapList_BorderColor,#e4e4e4); border-radius:.375rem; padding:.875rem 1rem; margin-bottom:.75rem; }
+.ws-cluster-header h1 { margin:0 0 .3rem; font-size:1.1rem; font-weight:700; }
+.ws-cluster-meta { font-size:.8rem; color:var(--sapContent_LabelColor,#6a6d70); display:flex; flex-wrap:wrap; gap:.4rem 1.2rem; margin-bottom:.6rem; }
+.ws-badge-list { display:flex; flex-wrap:wrap; gap:.3rem; margin-bottom:.5rem; }
+
+/* ── Cluster tile grid ── */
+.ws-cluster-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:.75rem; padding:.75rem; }
+.ws-cluster-tile { background:var(--sapBaseColor,#fff); border:1px solid var(--sapList_BorderColor,#e4e4e4); border-radius:.5rem; padding:.875rem 1rem; cursor:pointer; transition:box-shadow .15s,border-color .15s; display:flex; flex-direction:column; gap:.55rem; }
+.ws-cluster-tile:hover { box-shadow:0 2px 8px rgba(0,0,0,.1); border-color:var(--sapSelectedColor,#0070f2); }
+.ws-cluster-tile__header { display:flex; align-items:flex-start; justify-content:space-between; gap:.5rem; }
+.ws-cluster-tile__stats { display:flex; gap:.75rem; font-size:.72rem; color:var(--sapContent_LabelColor,#6a6d70); margin-top:.1rem; }
+.ws-cluster-tile__stat-val { font-weight:700; color:var(--sapTextColor,#32363a); font-size:.82rem; }
+.ws-cluster-tile__section-label { font-size:.65rem; font-weight:600; text-transform:uppercase; letter-spacing:.05em; color:var(--sapContent_LabelColor,#6a6d70); margin-bottom:.2rem; }
+.ws-cluster-tile__badges { display:flex; flex-wrap:wrap; gap:.2rem .25rem; }
+.ws-cluster-tile__kpi-row { display:grid; grid-template-columns:1fr 1fr 1fr; background:var(--sapList_AlternatingBackground,#f7f7f7); border:1px solid var(--sapList_BorderColor,#e4e4e4); border-radius:.35rem; overflow:hidden; }
+.ws-cluster-tile__kpi { padding:.38rem .5rem; text-align:center; border-right:1px solid var(--sapList_BorderColor,#e4e4e4); }
+.ws-cluster-tile__kpi:last-child { border-right:none; }
+.ws-cluster-tile__kpi-val { font-weight:700; font-size:.88rem; color:var(--sapTextColor,#32363a); line-height:1.25; display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.ws-cluster-tile__kpi-lbl { font-size:.58rem; text-transform:uppercase; letter-spacing:.05em; color:var(--sapContent_LabelColor,#6a6d70); display:block; margin-top:.1rem; }
+
+/* ── Nav breadcrumb ── */
+.ws-breadcrumb { display: flex; align-items: center; gap: .3rem; font-size: .8rem; color: var(--sapContent_LabelColor, #6a6d70); margin-bottom: .75rem; flex-wrap: wrap; }
+.ws-breadcrumb a { color: var(--sapLinkColor, #0070f2); cursor: pointer; text-decoration: none; }
+.ws-breadcrumb a:hover { text-decoration: underline; }
+.ws-breadcrumb__sep { color: var(--sapContent_LabelColor, #6a6d70); }
+
+/* ── Pagination ── */
+.ws-pagination { display: flex; align-items: center; gap: .4rem; padding: .5rem 0; font-size: .8125rem; justify-content: flex-end; }
+.ws-pagination__btn { padding: .25rem .5rem; border: 1px solid var(--sapButton_BorderColor, #0070f2); border-radius: .25rem; background: none; color: var(--sapButton_TextColor, #0070f2); cursor: pointer; font-size: .8rem; }
+.ws-pagination__btn:disabled { border-color: var(--sapSeparatorColor, #d9d9d9); color: var(--sapContent_LabelColor, #6a6d70); cursor: default; }
+.ws-pagination__info { color: var(--sapContent_LabelColor, #6a6d70); }
+
+/* ── Data table (portfolio detail, etc.) ── */
+.ws-data-table-wrap { overflow: auto; max-height: calc(100vh - 260px); }
+.ws-data-table { border-collapse: collapse; font-size: .75rem; width: 100%; table-layout: fixed; }
+.ws-data-table th { background: var(--sapList_HeaderBackground, #fafafa); padding: .3rem .4rem; white-space: nowrap; border: 1px solid var(--sapList_BorderColor, #e4e4e4); position: sticky; top: 0; z-index: 3; text-align: center; overflow: hidden; text-overflow: ellipsis; }
+.ws-data-table th:first-child { left: 0; z-index: 4; text-align: left; min-width: 180px; width: 220px; }
+.ws-data-table th:nth-child(2), .ws-data-table th:nth-child(3) { width: 90px; }
+.ws-data-table td { border: 1px solid var(--sapList_BorderColor, #e4e4e4); padding: .2rem .3rem; text-align: center; overflow: hidden; text-overflow: ellipsis; }
+.ws-data-table td:first-child { position: sticky; left: 0; background: var(--sapBaseColor, #fff); text-align: left; min-width: 180px; z-index: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 220px; }
+.ws-data-table tr:hover td { background: var(--sapList_Hover_Background, #f5f5f5); }
+.ws-data-table tr:hover td:first-child { background: var(--sapList_Hover_Background, #f5f5f5); }
+.ws-data-table tr:hover td[class^="gap-"] { filter: brightness(0.9); }
+/* ── LPR count tertile colors ── */
+.lpr-t1 { background: #e8f5e9 !important; color: #2e7d32; }
+.lpr-t2 { background: #388e3c !important; color: #fff; }
+.lpr-t3 { background: var(--sapNeutralBackground, #f5f5f5); }
+.ws-chart-wrap { position: relative; }
+
+/* ── SA hierarchy tree ── */
+.ws-hier { font-size: .78rem; padding: 0; }
+.ws-hier ul { list-style: none; margin: 0; padding: 0; }
+.ws-hier-l2 > span { font-weight: 600; display: block; padding: .2rem .25rem; }
+.ws-hier-l3 { padding-left: .75rem; color: var(--sapContent_LabelColor, #6a6d70); }
+.ws-hier-l3 > span { display: block; padding: .1rem .25rem; }
+.ws-hier-l4 { padding-left: 1.25rem; color: var(--sapContent_LabelColor, #6a6d70); font-size: .72rem; }
+.ws-hier-l4 > span { display: block; padding: .1rem .25rem; }
+
+/* ── Utility ── */
+.ws-btn { display: inline-flex; align-items: center; gap: .3rem; padding: .35rem .75rem; border: 1px solid var(--sapButton_BorderColor, #0070f2); border-radius: var(--sapElement_BorderCornerRadius, .25rem); background: var(--sapButton_Background, #fff); color: var(--sapButton_TextColor, #0070f2); font-size: .8125rem; cursor: pointer; font-family: inherit; white-space: nowrap; }
+.ws-btn:hover { background: var(--sapButton_Hover_Background, #e8f0fe); }
+.ws-btn--primary { background: var(--sapButton_Emphasized_Background, #0070f2); color: var(--sapButton_Emphasized_TextColor, #fff); border-color: var(--sapButton_Emphasized_BorderColor, #0070f2); }
+.ws-btn--primary:hover { background: #0057b8; }
+.text-right { text-align: right; }
+
+/* ── Account search ── */
+.ws-acct-search { position: relative; }
+.ws-acct-search__input { height: 1.75rem; padding: 0 .5rem; border: 1px solid var(--sapField_BorderColor, #89919a); border-radius: var(--sapElement_BorderCornerRadius, .25rem); background: var(--sapField_Background, #fff); font-size: .8125rem; color: var(--sapTextColor, #32363a); min-width: 200px; }
+.ws-acct-search__input:focus { outline: 2px solid var(--sapField_Hover_BorderColor, #0070f2); outline-offset: -2px; }
+.ws-acct-search__input::placeholder { color: var(--sapContent_PlaceholderTextColor, #89919a); }
+.ws-acct-search__dropdown { position: absolute; top: calc(100% + 2px); left: 0; min-width: 320px; max-height: 240px; overflow-y: auto; background: var(--sapBaseColor, #fff); border: 1px solid var(--sapList_BorderColor, #e4e4e4); border-radius: .25rem; box-shadow: 0 4px 12px rgba(0,0,0,.12); z-index: 100; }
+.ws-acct-search__item { padding: .4rem .65rem; font-size: .8125rem; cursor: pointer; border-bottom: 1px solid var(--sapList_BorderColor, #e4e4e4); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ws-acct-search__item:last-child { border-bottom: none; }
+.ws-acct-search__item:hover, .ws-acct-search__item.is-active { background: var(--sapList_Hover_Background, #f5f5f5); }
+.ws-acct-search__item.is-active { background: var(--sapList_SelectionBackgroundColor, #e8f0fe); }
+.ws-acct-search__item__name { font-weight: 500; }
+.ws-acct-search__item__meta { font-size: .72rem; color: var(--sapContent_LabelColor, #6a6d70); margin-top: .1rem; }
+.text-muted  { color: var(--sapContent_LabelColor, #6a6d70); }
+.nowrap { white-space: nowrap; }
+.flex-end { display: flex; justify-content: flex-end; gap: .4rem; }
+.gap-small { display: flex; gap: .4rem; align-items: center; }
+.mt-half { margin-top: .5rem; }
+</style>
+</head>
+<body>
+<div id="app">
+
+<!-- ── Shell header ── -->
+<header class="ws-shell">
+  <span class="ws-shell__title">Whitespace Analyzer</span>
+  <span class="ws-shell__sub" v-if="DATA.meta">{{ DATA.meta.mu }} · {{ quarterLabel }}</span>
+  <span style="margin-left:auto;color:rgba(255,255,255,.65);font-size:.8rem;white-space:nowrap" v-if="DATA.meta">Data Snapshot as of {{ DATA.meta.snapshot_date || DATA.meta.generated_at.slice(0,10) }}</span>
+  <button @click="reloadPage()" style="margin-left:1rem;padding:.25rem .75rem;background:transparent;color:rgba(255,255,255,.85);border:1px solid rgba(255,255,255,.4);border-radius:4px;font-size:.8rem;font-weight:600;cursor:pointer;white-space:nowrap;">↻ Refresh</button>
+</header>
+
+<!-- ── Navigation ── -->
+<nav class="ws-nav">
+  <div class="ws-nav__item" :class="{'is-active': activeView==='overview'}" @click="navigate('overview')">Overview</div>
+  <div class="ws-nav__item" :class="{'is-active': activeView==='account', 'is-disabled': !selectedAccount}" @click="navigate('account')" :title="selectedAccount ? selectedAccount.name : 'Select an account to view details'">Account Detail</div>
+<div class="ws-nav__item" :class="{'is-active': activeView==='portfolio'}" @click="navigate('portfolio')" v-if="DATA.clusters && DATA.clusters.length">Cluster Analysis</div>
+  <div class="ws-nav__item" :class="{'is-active': activeView==='glossary'}" @click="navigate('glossary')">Quick Start</div>
+  <div style="margin-left:auto;display:flex;align-items:center;gap:.5rem;padding:0 .5rem">
+    <span style="font-size:.8rem;color:var(--sapContent_LabelColor,#6a6d70);white-space:nowrap">Measure</span>
+    <select class="ws-select" v-model="measureView" @change="$nextTick(renderOverview); $nextTick(renderBubble)">
+      <option value="gap">Gap to Wallet</option>
+      <option value="accounts">Whitespace Accounts</option>
+    </select>
+    <div class="ws-acct-search" ref="acctSearchWrap">
+      <input
+        class="ws-acct-search__input"
+        type="text"
+        placeholder="Search accounts…"
+        v-model="accountSearch"
+        @focus="searchFocused = true"
+        @blur="onSearchBlur"
+        @keydown.down.prevent="searchCursorMove(1)"
+        @keydown.up.prevent="searchCursorMove(-1)"
+        @keydown.enter.prevent="searchSelectCursor"
+        @keydown.escape="searchClose"
+        autocomplete="off"
+        spellcheck="false"
+      />
+      <div class="ws-acct-search__dropdown" v-if="searchFocused && accountSearchResults.length">
+        <div
+          v-for="(r, idx) in accountSearchResults"
+          :key="r.id"
+          class="ws-acct-search__item"
+          :class="{'is-active': idx === searchCursor}"
+          @mousedown.prevent="searchSelectAccount(r)"
+          @mouseover="searchCursor = idx"
+        >
+          <div class="ws-acct-search__item__name">{{ r.name }}</div>
+          <div class="ws-acct-search__item__meta">{{ r.so }} · {{ r.sg }} · {{ r.ind }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</nav>
+
+<!-- ── Filter bar ── -->
+<div class="ws-filter-bar" v-show="activeView !== 'portfolio'">
+  <button class="ws-filter-toggle" @click="filtersExpanded = !filtersExpanded">
+    Filters<span v-if="activeFilterCount > 0" class="ws-filter-badge">{{ activeFilterCount }}</span>
+  </button>
+  <div class="ws-filter-pills">
+    <span v-for="pill in activeFilterPills" :key="pill.key + '::' + pill.value" class="ws-filter-pill">
+      {{ pill.label }}<button @click="clearFilter(pill.key, pill.value)" title="Remove filter">×</button>
+    </span>
+  </div>
+  <button v-if="hasActiveFilters" class="ws-btn-reset" @click="resetFilters">&#8635; Reset All</button>
+  <button class="ws-filter-chevron" @click="filtersExpanded = !filtersExpanded">{{ filtersExpanded ? '▲' : '▼' }}</button>
+</div>
+<div class="ws-filter-panel" v-show="filtersExpanded && activeView !== 'portfolio'">
+  <div class="ws-filter-group">
+    <div class="ws-filter-group-label">Account</div>
+    <div class="ws-filter-group-body">
+      <div class="ws-filter-col">
+        <span class="ws-filters__label">Sales Office</span>
+        <div class="ws-multiselect" @click.stop>
+          <div class="ws-ms-trigger" :class="{active: openDropdown==='office'}" @click="openDropdown = openDropdown==='office' ? null : 'office'">
+            <span class="ws-ms-label">{{ filters.selectedOffice.length===0 ? 'All' : filters.selectedOffice.length===1 ? filters.selectedOffice[0] : filters.selectedOffice.length+' selected' }}</span>
+            <span class="ws-ms-caret">▾</span>
+          </div>
+          <div class="ws-ms-dropdown" v-show="openDropdown==='office'">
+            <label v-for="o in allOffices" :key="o" class="ws-ms-option"><input type="checkbox" :value="o" v-model="filters.selectedOffice"><span>{{ o }}</span></label>
+          </div>
+        </div>
+      </div>
+      <div class="ws-filter-col">
+        <span class="ws-filters__label">Sales Group</span>
+        <div class="ws-multiselect" @click.stop>
+          <div class="ws-ms-trigger" :class="{active: openDropdown==='group'}" @click="openDropdown = openDropdown==='group' ? null : 'group'">
+            <span class="ws-ms-label">{{ filters.selectedGroup.length===0 ? 'All' : filters.selectedGroup.length===1 ? filters.selectedGroup[0] : filters.selectedGroup.length+' selected' }}</span>
+            <span class="ws-ms-caret">▾</span>
+          </div>
+          <div class="ws-ms-dropdown" v-show="openDropdown==='group'">
+            <label v-for="g in availableGroups" :key="g" class="ws-ms-option"><input type="checkbox" :value="g" v-model="filters.selectedGroup"><span>{{ g }}</span></label>
+          </div>
+        </div>
+      </div>
+      <div class="ws-filter-col">
+        <span class="ws-filters__label">Industry</span>
+        <div class="ws-multiselect" @click.stop>
+          <div class="ws-ms-trigger" :class="{active: openDropdown==='industry'}" @click="openDropdown = openDropdown==='industry' ? null : 'industry'">
+            <span class="ws-ms-label">{{ filters.selectedIndustry.length===0 ? 'All' : filters.selectedIndustry.length===1 ? filters.selectedIndustry[0] : filters.selectedIndustry.length+' selected' }}</span>
+            <span class="ws-ms-caret">▾</span>
+          </div>
+          <div class="ws-ms-dropdown" v-show="openDropdown==='industry'">
+            <label v-for="ind in allIndustries" :key="ind" class="ws-ms-option"><input type="checkbox" :value="ind" v-model="filters.selectedIndustry"><span>{{ ind }}</span></label>
+          </div>
+        </div>
+      </div>
+      <div class="ws-filter-col">
+        <span class="ws-filters__label">SIC Code</span>
+        <input type="text" class="ws-ms-trigger" style="cursor:text;min-width:120px;padding:.25rem .5rem"
+          placeholder="e.g. 3724, 3728"
+          v-model.trim="filters.selectedSic"
+          @click.stop
+          :class="{active: filters.selectedSic.length > 0}">
+      </div>
+      <div class="ws-filter-col">
+        <span class="ws-filters__label">Segment</span>
+        <div class="ws-multiselect" @click.stop>
+          <div class="ws-ms-trigger" :class="{active: openDropdown==='seg'}" @click="openDropdown = openDropdown==='seg' ? null : 'seg'">
+            <span class="ws-ms-label">{{ filters.selectedSeg.length===0 ? 'All' : filters.selectedSeg.length===1 ? filters.selectedSeg[0] : filters.selectedSeg.length+' selected' }}</span>
+            <span class="ws-ms-caret">▾</span>
+          </div>
+          <div class="ws-ms-dropdown" v-show="openDropdown==='seg'">
+            <label v-for="s in allSegments" :key="s" class="ws-ms-option"><input type="checkbox" :value="s" v-model="filters.selectedSeg"><span>{{ s }}</span></label>
+          </div>
+        </div>
+      </div>
+      <div class="ws-filter-col">
+        <span class="ws-filters__label">RBC</span>
+        <div class="ws-multiselect" @click.stop>
+          <div class="ws-ms-trigger" :class="{active: openDropdown==='rbc'}" @click="openDropdown = openDropdown==='rbc' ? null : 'rbc'">
+            <span class="ws-ms-label">{{ filters.selectedRBC.length===0 ? 'All' : filters.selectedRBC.length===1 ? filters.selectedRBC[0] : filters.selectedRBC.length+' selected' }}</span>
+            <span class="ws-ms-caret">▾</span>
+          </div>
+          <div class="ws-ms-dropdown" v-show="openDropdown==='rbc'">
+            <label v-for="r in allRBCs" :key="r" class="ws-ms-option"><input type="checkbox" :value="r" v-model="filters.selectedRBC"><span>{{ r }}</span></label>
+          </div>
+        </div>
+      </div>
+      <div class="ws-filter-col">
+        <span class="ws-filters__label">Archetype</span>
+        <div class="ws-multiselect" @click.stop>
+          <div class="ws-ms-trigger" :class="{active: openDropdown==='arch'}" @click="openDropdown = openDropdown==='arch' ? null : 'arch'">
+            <span class="ws-ms-label">{{ filters.selectedArch.length===0 ? 'All' : filters.selectedArch.length===1 ? filters.selectedArch[0] : filters.selectedArch.length+' selected' }}</span>
+            <span class="ws-ms-caret">▾</span>
+          </div>
+          <div class="ws-ms-dropdown" v-show="openDropdown==='arch'">
+            <label v-for="ar in allArchetypes" :key="ar" class="ws-ms-option"><input type="checkbox" :value="ar" v-model="filters.selectedArch"><span>{{ ar }}</span></label>
+          </div>
+        </div>
+      </div>
+      <div class="ws-filter-col">
+        <span class="ws-filters__label">RISE</span>
+        <div class="ws-multiselect" @click.stop>
+          <div class="ws-ms-trigger" :class="{active: openDropdown==='rise'}" @click="openDropdown = openDropdown==='rise' ? null : 'rise'">
+            <span class="ws-ms-label">{{ filters.selectedRise.length===0 ? 'All' : filters.selectedRise.length===1 ? filters.selectedRise[0] : filters.selectedRise.length+' selected' }}</span>
+            <span class="ws-ms-caret">▾</span>
+          </div>
+          <div class="ws-ms-dropdown" v-show="openDropdown==='rise'">
+            <label v-for="r in allRise" :key="r" class="ws-ms-option"><input type="checkbox" :value="r" v-model="filters.selectedRise"><span>{{ r }}</span></label>
+          </div>
+        </div>
+      </div>
+      <div class="ws-filter-col">
+        <span class="ws-filters__label">IAC</span>
+        <div class="ws-multiselect" @click.stop>
+          <div class="ws-ms-trigger" :class="{active: openDropdown==='iac'}" @click="openDropdown = openDropdown==='iac' ? null : 'iac'">
+            <span class="ws-ms-label">{{ filters.selectedIAC.length===0 ? 'All' : filters.selectedIAC.length===1 ? filters.selectedIAC[0] : filters.selectedIAC.length+' selected' }}</span>
+            <span class="ws-ms-caret">▾</span>
+          </div>
+          <div class="ws-ms-dropdown" v-show="openDropdown==='iac'">
+            <label v-for="iac in allIACs" :key="iac" class="ws-ms-option"><input type="checkbox" :value="iac" v-model="filters.selectedIAC"><span>{{ iac }}</span></label>
+          </div>
+        </div>
+      </div>
+      <div class="ws-filter-col" v-if="allGeoL3s.length">
+        <span class="ws-filters__label">GEO-Level 3</span>
+        <div class="ws-multiselect" @click.stop>
+          <div class="ws-ms-trigger" :class="{active: openDropdown==='geol3'}" @click="openDropdown = openDropdown==='geol3' ? null : 'geol3'">
+            <span class="ws-ms-label">{{ filters.selectedGeoL3.length===0 ? 'All' : filters.selectedGeoL3.length===1 ? filters.selectedGeoL3[0] : filters.selectedGeoL3.length+' selected' }}</span>
+            <span class="ws-ms-caret">▾</span>
+          </div>
+          <div class="ws-ms-dropdown" v-show="openDropdown==='geol3'">
+            <label v-for="geo in allGeoL3s" :key="geo" class="ws-ms-option"><input type="checkbox" :value="geo" v-model="filters.selectedGeoL3"><span>{{ geo }}</span></label>
+          </div>
+        </div>
+      </div>
+      <div class="ws-filter-col" v-if="allAEs.length">
+        <span class="ws-filters__label">AE's</span>
+        <div class="ws-multiselect" @click.stop>
+          <div class="ws-ms-trigger" :class="{active: openDropdown==='ae'}" @click="openDropdown = openDropdown==='ae' ? null : 'ae'">
+            <span class="ws-ms-label">{{ filters.selectedAE.length===0 ? 'All' : filters.selectedAE.length===1 ? filters.selectedAE[0] : filters.selectedAE.length+' selected' }}</span>
+            <span class="ws-ms-caret">▾</span>
+          </div>
+          <div class="ws-ms-dropdown" v-show="openDropdown==='ae'">
+            <label v-for="ae in allAEs" :key="ae" class="ws-ms-option"><input type="checkbox" :value="ae" v-model="filters.selectedAE"><span>{{ ae }}</span></label>
+          </div>
+        </div>
+      </div>
+      <div class="ws-filter-col" v-if="allSalesMgrs.length">
+        <span class="ws-filters__label">Sales Manager</span>
+        <div class="ws-multiselect" @click.stop>
+          <div class="ws-ms-trigger" :class="{active: openDropdown==='smgr'}" @click="openDropdown = openDropdown==='smgr' ? null : 'smgr'">
+            <span class="ws-ms-label">{{ filters.selectedSalesMgr.length===0 ? 'All' : filters.selectedSalesMgr.length===1 ? filters.selectedSalesMgr[0] : filters.selectedSalesMgr.length+' selected' }}</span>
+            <span class="ws-ms-caret">▾</span>
+          </div>
+          <div class="ws-ms-dropdown" v-show="openDropdown==='smgr'">
+            <label v-for="mgr in allSalesMgrs" :key="mgr" class="ws-ms-option"><input type="checkbox" :value="mgr" v-model="filters.selectedSalesMgr"><span>{{ mgr }}</span></label>
+          </div>
+        </div>
+      </div>
+      <div class="ws-filter-col">
+        <span class="ws-filters__label">Revenue Band</span>
+        <div class="ws-multiselect" @click.stop>
+          <div class="ws-ms-trigger" :class="{active: openDropdown==='rev'}" @click="openDropdown = openDropdown==='rev' ? null : 'rev'">
+            <span class="ws-ms-label">{{ filters.selectedRev.length===0 ? 'All' : filters.selectedRev.length===1 ? filters.selectedRev[0] : filters.selectedRev.length+' selected' }}</span>
+            <span class="ws-ms-caret">▾</span>
+          </div>
+          <div class="ws-ms-dropdown" v-show="openDropdown==='rev'">
+            <label v-for="rv in allRevenueBands" :key="rv" class="ws-ms-option"><input type="checkbox" :value="rv" v-model="filters.selectedRev"><span>{{ rv }}</span></label>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div style="display:flex;flex-wrap:wrap;gap:.5rem">
+    <div class="ws-filter-group" style="flex:0 0 auto">
+      <div class="ws-filter-group-label">Solutions</div>
+      <div class="ws-filter-group-body" style="align-items:flex-start">
+        <div class="ws-filter-col">
+          <span class="ws-filters__label">Solution Area</span>
+          <div class="ws-multiselect" @click.stop>
+            <div class="ws-ms-trigger" :class="{active: openDropdown==='l1'}" @click="openDropdown = openDropdown==='l1' ? null : 'l1'">
+              <span class="ws-ms-label">{{ filters.selectedL1.length===0 ? 'All' : filters.selectedL1.length===1 ? filters.selectedL1[0] : filters.selectedL1.length+' selected' }}</span>
+              <span class="ws-ms-caret">▾</span>
+            </div>
+            <div class="ws-ms-dropdown" v-show="openDropdown==='l1'">
+              <label v-for="l in allL1s" :key="l" class="ws-ms-option"><input type="checkbox" :value="l" v-model="filters.selectedL1"><span>{{ l }}</span></label>
+            </div>
+          </div>
+          <div v-if="filters.selectedL1.length > 1" class="ws-l1-mode-toggle">
+            <button :class="['ws-l1-mode-btn', {active: l1FilterMode==='any'}]" @click="l1FilterMode='any'">Any</button>
+            <button :class="['ws-l1-mode-btn', {active: l1FilterMode==='all'}]" @click="l1FilterMode='all'">All</button>
+          </div>
+        </div>
+        <div class="ws-filter-col">
+          <span class="ws-filters__label">Num Solutions</span>
+          <div class="ws-multiselect" @click.stop>
+            <div class="ws-ms-trigger" :class="{active: openDropdown==='nsolb'}" @click="openDropdown = openDropdown==='nsolb' ? null : 'nsolb'">
+              <span class="ws-ms-label">{{ filters.selectedNSolB.length===0 ? 'All' : filters.selectedNSolB.length===1 ? filters.selectedNSolB[0] : filters.selectedNSolB.length+' selected' }}</span>
+              <span class="ws-ms-caret">▾</span>
+            </div>
+            <div class="ws-ms-dropdown" v-show="openDropdown==='nsolb'">
+              <label v-for="n in allNSolBands" :key="n" class="ws-ms-option"><input type="checkbox" :value="n" v-model="filters.selectedNSolB"><span>{{ n }}</span></label>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="ws-filter-group" style="flex:0 0 auto">
+      <div class="ws-filter-group-label">TAO</div>
+      <div class="ws-filter-group-body">
+        <div class="ws-filter-col">
+          <span class="ws-filters__label">Strategy</span>
+          <div class="ws-multiselect" @click.stop>
+            <div class="ws-ms-trigger" :class="{active: openDropdown==='strat'}" @click="openDropdown = openDropdown==='strat' ? null : 'strat'">
+              <span class="ws-ms-label">{{ filters.selectedStrategy.length===0 ? 'All' : filters.selectedStrategy.length===1 ? filters.selectedStrategy[0] : filters.selectedStrategy.length+' selected' }}</span>
+              <span class="ws-ms-caret">▾</span>
+            </div>
+            <div class="ws-ms-dropdown" v-show="openDropdown==='strat'">
+              <label v-for="s in allStrategies" :key="s" class="ws-ms-option"><input type="checkbox" :value="s" v-model="filters.selectedStrategy"><span>{{ s }}</span></label>
+            </div>
+          </div>
+        </div>
+        <div class="ws-filter-col">
+          <span class="ws-filters__label">Priority</span>
+          <div class="ws-multiselect" @click.stop>
+            <div class="ws-ms-trigger" :class="{active: openDropdown==='pri'}" @click="openDropdown = openDropdown==='pri' ? null : 'pri'">
+              <span class="ws-ms-label">{{ filters.selectedPriority.length===0 ? 'All' : filters.selectedPriority.length===1 ? filters.selectedPriority[0] : filters.selectedPriority.length+' selected' }}</span>
+              <span class="ws-ms-caret">▾</span>
+            </div>
+            <div class="ws-ms-dropdown" v-show="openDropdown==='pri'">
+              <label v-for="p in allPriorities" :key="p" class="ws-ms-option"><input type="checkbox" :value="p" v-model="filters.selectedPriority"><span>{{ p }}</span></label>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="ws-filter-group" style="flex:0 0 auto">
+      <div class="ws-filter-group-label">Analysis</div>
+      <div class="ws-filter-group-body">
+        <div class="ws-filter-col">
+          <span class="ws-filters__label">Scope</span>
+          <select class="ws-select" v-model="scopeMode" @change="$nextTick(renderOverview); $nextTick(renderBubble)">
+            <option value="pe">Planning Entity Only</option>
+            <option value="pe_tp">PE + Top Parent</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Portfolio filter bar ── -->
+<div class="ws-filter-bar" v-show="activeView === 'portfolio' && portfolioSubView === 'list'">
+  <button class="ws-filter-toggle" @click="portfolioFiltersExpanded = !portfolioFiltersExpanded">
+    Filters<span v-if="clusterFilterCount > 0" class="ws-filter-badge">{{ clusterFilterCount }}</span>
+  </button>
+  <div class="ws-filter-pills">
+    <span v-for="l in clusterFilters.selectedWsL1Top" :key="'wsTop::'+l" class="ws-filter-pill">
+      SA: {{ l }}<button @click="clusterFilters.selectedWsL1Top = clusterFilters.selectedWsL1Top.filter(v => v !== l)" title="Remove filter">×</button>
+    </span>
+    <span v-for="l in clusterFilters.selectedCovL1" :key="'cov::'+l" class="ws-filter-pill">
+      Current: {{ l }}<button @click="clusterFilters.selectedCovL1 = clusterFilters.selectedCovL1.filter(v => v !== l)" title="Remove filter">×</button>
+    </span>
+    <span v-for="l in clusterFilters.selectedWsL1" :key="'ws::'+l" class="ws-filter-pill">
+      Target: {{ l }}<button @click="clusterFilters.selectedWsL1 = clusterFilters.selectedWsL1.filter(v => v !== l)" title="Remove filter">×</button>
+    </span>
+  </div>
+  <button v-if="clusterFilterCount > 0" class="ws-btn-reset" @click="clusterFilters.selectedWsL1Top = []; clusterFilters.selectedCovL1 = []; clusterFilters.selectedWsL1 = []">&#8635; Reset All</button>
+  <button class="ws-filter-chevron" @click="portfolioFiltersExpanded = !portfolioFiltersExpanded">{{ portfolioFiltersExpanded ? '▲' : '▼' }}</button>
+</div>
+<div class="ws-filter-panel" v-show="portfolioFiltersExpanded && activeView === 'portfolio' && portfolioSubView === 'list'">
+  <div class="ws-filter-group">
+    <div class="ws-filter-group-label">Clusters</div>
+    <div class="ws-filter-group-body" style="align-items:flex-start">
+      <div class="ws-filter-col">
+        <span class="ws-filters__label">Target Solution Area</span>
+        <div class="ws-multiselect" @click.stop>
+          <div class="ws-ms-trigger" :class="{active: openPortfolioDropdown==='wsL1Top'}" @click="openPortfolioDropdown = openPortfolioDropdown==='wsL1Top' ? null : 'wsL1Top'">
+            <span class="ws-ms-label">{{ clusterFilters.selectedWsL1Top.length===0 ? 'All' : clusterFilters.selectedWsL1Top.length===1 ? clusterFilters.selectedWsL1Top[0] : clusterFilters.selectedWsL1Top.length+' selected' }}</span>
+            <span class="ws-ms-caret">▾</span>
+          </div>
+          <div class="ws-ms-dropdown" v-show="openPortfolioDropdown==='wsL1Top'">
+            <label v-for="l in allWsL1sTop" :key="l" class="ws-ms-option"><input type="checkbox" :value="l" v-model="clusterFilters.selectedWsL1Top"><span>{{ l }}</span></label>
+          </div>
+        </div>
+      </div>
+      <div class="ws-filter-col">
+        <span class="ws-filters__label">Current Sub-Solution Area</span>
+        <div class="ws-multiselect" @click.stop>
+          <div class="ws-ms-trigger" :class="{active: openPortfolioDropdown==='covL1'}" @click="openPortfolioDropdown = openPortfolioDropdown==='covL1' ? null : 'covL1'">
+            <span class="ws-ms-label">{{ clusterFilters.selectedCovL1.length===0 ? 'All' : clusterFilters.selectedCovL1.length===1 ? clusterFilters.selectedCovL1[0] : clusterFilters.selectedCovL1.length+' selected' }}</span>
+            <span class="ws-ms-caret">▾</span>
+          </div>
+          <div class="ws-ms-dropdown" v-show="openPortfolioDropdown==='covL1'">
+            <label v-for="l in allCovL2s" :key="l" class="ws-ms-option"><input type="checkbox" :value="l" v-model="clusterFilters.selectedCovL1"><span>{{ l }}</span></label>
+          </div>
+        </div>
+        <div v-if="clusterFilters.selectedCovL1.length > 1" class="ws-l1-mode-toggle">
+          <button :class="['ws-l1-mode-btn', {active: clusterCovL1Mode==='any'}]" @click="clusterCovL1Mode='any'">Any</button>
+          <button :class="['ws-l1-mode-btn', {active: clusterCovL1Mode==='all'}]" @click="clusterCovL1Mode='all'">All</button>
+        </div>
+      </div>
+      <div class="ws-filter-col">
+        <span class="ws-filters__label">Target Sub-Solution Area</span>
+        <div class="ws-multiselect" @click.stop>
+          <div class="ws-ms-trigger" :class="{active: openPortfolioDropdown==='wsL1'}" @click="openPortfolioDropdown = openPortfolioDropdown==='wsL1' ? null : 'wsL1'">
+            <span class="ws-ms-label">{{ clusterFilters.selectedWsL1.length===0 ? 'All' : clusterFilters.selectedWsL1.length===1 ? clusterFilters.selectedWsL1[0] : clusterFilters.selectedWsL1.length+' selected' }}</span>
+            <span class="ws-ms-caret">▾</span>
+          </div>
+          <div class="ws-ms-dropdown" v-show="openPortfolioDropdown==='wsL1'">
+            <label v-for="l in allWsL2s" :key="l" class="ws-ms-option"><input type="checkbox" :value="l" v-model="clusterFilters.selectedWsL1"><span>{{ l }}</span></label>
+          </div>
+        </div>
+        <div v-if="clusterFilters.selectedWsL1.length > 1" class="ws-l1-mode-toggle">
+          <button :class="['ws-l1-mode-btn', {active: clusterWsL1Mode==='any'}]" @click="clusterWsL1Mode='any'">Any</button>
+          <button :class="['ws-l1-mode-btn', {active: clusterWsL1Mode==='all'}]" @click="clusterWsL1Mode='all'">All</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- VIEW: OVERVIEW -->
+<!-- ════════════════════════════════════════════ -->
+<div class="ws-main">
+<div class="ws-view" :class="{'is-active': activeView==='overview'}" id="view-overview">
+
+
+  <!-- KPI tiles -->
+  <div class="ws-kpi-row" style="padding:1rem 1rem 0">
+    <div class="ws-kpi"><div class="ws-kpi__label">Total Gap to Wallet</div><div class="ws-kpi__value">{{ fmtUSD(kpis.totalGapRaw) }}</div></div>
+    <div class="ws-kpi"><div class="ws-kpi__label">Total Whitespace Gap</div><div class="ws-kpi__value">{{ fmtUSD(kpis.totalGap) }}</div></div>
+    <div class="ws-kpi"><div class="ws-kpi__label">Total Accounts</div><div class="ws-kpi__value">{{ kpis.totalAccounts }}</div></div>
+    <div class="ws-kpi"><div class="ws-kpi__label">Accounts with Whitespace</div><div class="ws-kpi__value">{{ kpis.wsAccounts }}</div></div>
+    <div class="ws-kpi"><div class="ws-kpi__label">High-Priority Accounts</div><div class="ws-kpi__value">{{ kpis.highPriAccounts }}</div></div>
+    <div class="ws-kpi"><div class="ws-kpi__label">RISE Customers</div><div class="ws-kpi__value">{{ kpis.riseAccounts }}</div></div>
+  </div>
+
+  <!-- Charts row -->
+  <div style="margin-bottom:.75rem;display:grid;grid-template-columns:1fr 1fr;gap:.75rem">
+    <div class="ws-card">
+      <div class="ws-card__header" style="display:flex;align-items:center;gap:.5rem">
+        <span>{{ measureView === 'gap'
+          ? (treemapDrillL1 !== null ? 'Gap to Wallet · ' + DATA.sah_l1[treemapDrillL1] : 'Gap to Wallet by Solution Area')
+          : (treemapDrillL1 !== null ? 'Whitespace Accounts · ' + DATA.sah_l1[treemapDrillL1] : 'Whitespace Accounts by Solution Area') }}</span>
+        <button v-if="treemapDrillL1 !== null" @click="treemapDrillL1 = null; filters.selectedL1 = []; $nextTick(renderTreemap)" style="margin-left:auto;font-size:.72rem;padding:.15rem .5rem;cursor:pointer;border:1px solid #ccc;border-radius:3px;background:#f5f5f5">&#8592; All Solution Areas</button>
+      </div>
+      <div class="ws-card__body">
+        <div class="ws-chart-wrap" style="height:220px"><canvas id="chart-treemap"></canvas></div>
+        <p id="chart-treemap-empty" class="text-muted" style="padding:1rem;display:none">No whitespace data</p>
+      </div>
+    </div>
+    <div class="ws-card">
+      <div class="ws-card__header" style="display:flex;align-items:center;gap:.5rem">
+        <span class="ws-card__title">{{ bubbleDrillL1 !== null
+            ? (measureView === 'gap' ? 'Gap to Wallet' : 'Whitespace Accounts') + ' by Solution and TAO Priority · ' + DATA.sah_l1[bubbleDrillL1]
+            : (measureView === 'gap' ? 'Gap to Wallet' : 'Whitespace Accounts') + ' by Solution and TAO Priority' }}</span>
+        <button v-if="bubbleDrillL1 !== null" @click="filters.selectedL1 = []; $nextTick(renderBubble)" style="margin-left:auto;font-size:.72rem;padding:.15rem .5rem;cursor:pointer;border:1px solid #ccc;border-radius:3px;background:#f5f5f5">&#8592; All Solution Areas</button>
+      </div>
+      <div class="ws-card__body">
+        <div class="ws-chart-wrap" style="height:260px"><canvas id="chart-bubble"></canvas></div>
+        <p id="chart-bubble-empty" class="text-muted" style="padding:1rem;display:none">No whitespace data</p>
+        <div id="chart-bubble-legend" style="display:none;align-items:center;gap:.25rem;padding:.35rem .5rem 0;font-size:.72rem;color:var(--sapContent_LabelColor,#6a6d70);flex-wrap:wrap"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Heatmap -->
+  <div class="ws-card" style="margin-bottom:.75rem">
+    <div class="ws-card__header" style="display:flex;align-items:center;gap:.5rem">
+      <span>{{ measureView === 'accounts'
+        ? (filters.selectedL1[0] ? 'Whitespace Accounts by Sales Group · ' + filters.selectedL1[0] : 'Whitespace Accounts by Sales Group and Solution Area')
+        : (filters.selectedL1[0] ? 'Gap to Wallet by Sales Group · ' + filters.selectedL1[0] : 'Gap to Wallet by Sales Group and Solution Area') }}</span>
+      <span class="text-muted" style="font-size:.72rem;font-weight:400">{{ filters.selectedL1[0] ? 'Drilled into L2s · click cell to filter by group' : (measureView === 'accounts' ? 'Accounts · click cell to filter by group' : 'Gap · click cell to filter by group') }}</span>
+      <div v-if="!filters.selectedL1[0]" style="margin-left:auto"></div>
+      <button v-if="filters.selectedL1[0]" @click="filters.selectedL1 = []; filters.selectedGroup = []" style="margin-left:auto;font-size:.72rem;padding:.15rem .5rem;cursor:pointer;border:1px solid #ccc;border-radius:3px;background:#f5f5f5">&#8592; All Solution Areas</button>
+    </div>
+    <div class="ws-card__body" style="overflow-x:auto">
+      <div id="heatmap-container"></div>
+    </div>
+  </div>
+
+  <!-- All accounts (paginated) -->
+  <div class="ws-card">
+    <div class="ws-card__header" style="display:flex;align-items:center;gap:.5rem">
+      <span>{{ filters.selectedL1[0] ? 'Account Details · ' + filters.selectedL1[0] : 'Account Details' }}</span>
+      <div style="display:flex;gap:.25rem;margin-left:auto">
+        <button :class="['ws-btn', accountTableView==='status' ? 'ws-btn--primary' : '']" style="font-size:.75rem;padding:.2rem .55rem" @click="accountTableView='status'; $nextTick(renderTopAccountsTable)">Adoption Status</button>
+        <button :class="['ws-btn', accountTableView==='tao_gap' ? 'ws-btn--primary' : '']" style="font-size:.75rem;padding:.2rem .55rem" @click="accountTableView='tao_gap'; $nextTick(renderTopAccountsTable)">TAO Gap</button>
+        <button :class="['ws-btn', accountTableView==='lpr_count' ? 'ws-btn--primary' : '']" style="font-size:.75rem;padding:.2rem .55rem" @click="accountTableView='lpr_count'; $nextTick(renderTopAccountsTable)">Count of LPRs</button>
+        <button class="ws-btn" style="font-size:.75rem;padding:.2rem .55rem" @click="downloadAccountDetailsCSV()" title="Download current view as CSV">&#8595; Export CSV</button>
+      </div>
+      <button v-if="treemapDrillL2 !== null" style="font-size:.72rem;padding:.15rem .5rem;cursor:pointer;border:1px solid #ccc;border-radius:3px;background:#f5f5f5" @click="treemapDrillL2 = null; $nextTick(renderTopAccountsTable)">&#8592; Back to L2</button>
+      <button v-else-if="filters.selectedL1[0]" style="font-size:.72rem;padding:.15rem .5rem;cursor:pointer;border:1px solid #ccc;border-radius:3px;background:#f5f5f5" @click="filters.selectedL1 = []; treemapDrillL2 = null">&#8592; All Solution Areas</button>
+    </div>
+    <div class="ws-card__body" style="padding:0">
+      <div id="top-accounts-table"></div>
+      <div id="overview-pagination" class="ws-pagination" style="padding:.5rem 1rem"></div>
+    </div>
+  </div>
+</div>
+
+
+
+<!-- ════════════════════════════════════════════ -->
+<!-- VIEW: ACCOUNT DETAIL -->
+<!-- ════════════════════════════════════════════ -->
+<div class="ws-view" :class="{'is-active': activeView==='account'}" id="view-account">
+  <div v-if="selectedAccount">
+
+    <!-- Breadcrumb + nav -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.5rem">
+      <div class="ws-breadcrumb">
+        <a @click="navigate(prevView)">{{ prevViewLabel }}</a>
+        <span class="ws-breadcrumb__sep">/</span>
+        <span>{{ selectedAccount.name }}</span>
+      </div>
+      <div class="flex-end">
+        <button class="ws-btn" @click="prevAccount" :disabled="accountNavIdx <= 0">← Prev</button>
+        <button class="ws-btn" @click="nextAccount" :disabled="accountNavIdx >= accountNavList.length - 1">Next →</button>
+      </div>
+    </div>
+
+    <!-- Header card -->
+    <div class="ws-acct-header">
+      <h1>{{ selectedAccount.name }}</h1>
+      <div class="ws-acct-meta">
+        <span><span class="text-muted">ID: </span><strong>{{ selectedAccount.id }}</strong></span>
+        <span><span class="text-muted">Sales Office: </span><strong>{{ selectedAccount.so }}</strong></span>
+        <span><span class="text-muted">Sales Group: </span><strong>{{ selectedAccount.sg }}</strong></span>
+        <span v-if="selectedAccount.ind"><span class="text-muted">Industry: </span><strong>{{ selectedAccount.ind }}</strong></span>
+        <span v-if="selectedAccount.rev"><span class="text-muted">Revenue Band: </span><strong>{{ selectedAccount.rev }}</strong></span>
+        <span v-if="selectedAccount.arch"><span class="text-muted">Archetype: </span><strong>{{ selectedAccount.arch }}</strong></span>
+        <span v-if="selectedAccount.iac"><span class="text-muted">IAC: </span><strong>{{ selectedAccount.iac }}</strong></span>
+        <span v-if="selectedAccount.seg"><span class="text-muted">Segment: </span><strong>{{ selectedAccount.seg }}</strong></span>
+        <span v-if="selectedAccount.rbc"><span class="text-muted">RBC: </span><strong>{{ selectedAccount.rbc }}</strong></span>
+        <span v-if="selectedAccount.n_sol != null"><span class="text-muted">Solutions: </span><strong>{{ selectedAccount.n_sol_b || selectedAccount.n_sol }}</strong></span>
+        <span v-if="selectedAccount.sic"><span class="text-muted">SIC: </span><strong>{{ selectedAccount.sic }}</strong></span>
+        <span v-if="selectedAccount.tp_name"><span class="text-muted">Top Parent: </span><strong>{{ selectedAccount.tp_name }}</strong></span>
+        <span v-if="selectedAccount.is_tp">
+          <span style="background:#e1f5e1;border:1px solid #8bc88b;border-radius:.25rem;padding:.1rem .45rem;font-size:.78rem;color:#1a6b1a;font-weight:600">Top Parent Account</span>
+        </span>
+      </div>
+    </div>
+
+    <!-- Non-top-parent warning -->
+    <div v-if="!selectedAccount.is_p && !selectedAccount.is_tp"
+         style="background:#fff3cd;border:1px solid #ffc107;border-radius:.375rem;padding:.75rem 1rem;margin-bottom:.75rem">
+      <div style="font-size:.875rem;color:#664d03">
+        <strong>Note:</strong> This account is a division or subsidiary — it has a parent account.
+        The whitespace analysis shown here is based solely on this account's coverage and does not reflect the parent account's products or gaps.
+      </div>
+    </div>
+
+    <!-- Coverage grid -->
+    <div class="ws-card" style="margin-bottom:.75rem">
+      <div class="ws-card__header">
+        Solution Area Coverage
+        <span class="text-muted" style="font-size:.72rem;font-weight:400">
+          Click a tile to filter detail tables below
+          <span v-if="selectedAcctSA !== null"> · <strong style="color:var(--sapSelectedColor,#0070f2)">{{ DATA.sah_l1[selectedAcctSA] }} selected</strong> — <a style="cursor:pointer;color:var(--sapLinkColor,#0070f2)" @click="selectedAcctSA=null;$nextTick(()=>renderCoverageGrid())">clear</a></span>
+        </span>
+
+      </div>
+      <div class="ws-card__body" style="padding:.5rem">
+        <div class="ws-cov-l2-legend">
+          <span class="ws-badge ws-badge--l2-covered">Live</span>
+          <span class="ws-badge ws-badge--l2-project">Project</span>
+          <span class="ws-badge ws-badge--l2-shelfware">Shelfware</span>
+          <span class="ws-badge ws-badge--l2-whitespace">Whitespace</span>
+          <span class="ws-badge ws-badge--l2-parent-owned">Owned by Parent</span>
+        </div>
+        <div class="ws-coverage-grid" id="acct-coverage-grid"></div>
+      </div>
+    </div>
+
+    <!-- Pipeline & Proposed Solutions -->
+    <div class="ws-card">
+      <div class="ws-card__header">Pipeline &amp; Proposed Solutions — {{ selectedAccount.ind_b || selectedAccount.ind || 'Industry' }}</div>
+      <div class="ws-card__body" style="padding:0;overflow-x:auto">
+        <table class="ws-table">
+          <thead>
+            <tr>
+              <th style="background:#ffffff">Solution Area</th>
+              <th class="text-center" style="background:#e3f0ff">Priority Score</th>
+              <th style="background:#e3f0ff">Strategy</th>
+              <th class="text-right" style="background:#e3f0ff">Estimated Wallet</th>
+              <th class="text-right" style="background:#e3f0ff">SAP Cloud Exit ACV</th>
+              <th class="text-right" style="background:#e3f0ff">CY Cloud Pipeline</th>
+              <th class="text-right" style="background:#e3f0ff">CY+1 Cloud Pipeline</th>
+              <th class="text-right" style="background:#e3f0ff">Gap to Est. Wallet</th>
+              <th style="background:#e3f0ff">ACV at Risk</th>
+              <th class="text-right" style="background:#9dc8ff">Sales Planning Pipeline</th>
+              <th style="background:#0064d9;color:#fff">Industry-Recommended Solutions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-if="!acctSARows.length">
+              <td colspan="11" class="text-muted" style="padding:.75rem 1rem">No data available</td>
+            </tr>
+            <tr v-for="r in acctSARows" :key="r.l1">
+              <td>{{ r.l1 }}</td>
+              <td class="text-center">
+                <span v-if="r.tao && r.tao.pri" v-html="prioBubble(r.tao.pri)"></span>
+              </td>
+              <td>{{ r.tao && r.tao.strat || '' }}</td>
+              <td class="text-right nowrap">{{ r.tao && r.tao.wallet != null ? fmtUSD(r.tao.wallet) : '' }}</td>
+              <td class="text-right nowrap">{{ r.tao && r.tao.acv != null ? fmtUSD(r.tao.acv) : '' }}</td>
+              <td class="text-right nowrap">{{ r.tao && r.tao.cy != null ? fmtUSD(r.tao.cy) : '' }}</td>
+              <td class="text-right nowrap">{{ r.tao && r.tao.cy1 != null ? fmtUSD(r.tao.cy1) : '' }}</td>
+              <td class="text-right nowrap">{{ r.tao && r.tao.gap != null ? fmtUSD(r.tao.gap) : '' }}</td>
+              <td class="text-right nowrap">{{ r.tao && r.tao.acv_risk != null ? fmtUSD(r.tao.acv_risk) : '' }}</td>
+              <td class="text-right nowrap">{{ r.spi != null ? fmtUSD(r.spi) : '' }}</td>
+              <td>
+                <span v-if="r.prods.length" style="display:flex;flex-wrap:wrap;gap:.25rem">
+                  <template v-for="p in r.prods" :key="p.p">
+                    <a v-if="p.kg" :href="p.kg" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;padding:.15rem .5rem;border-radius:.75rem;font-size:.72rem;font-weight:500;background:var(--sapButton_Lite_Background,#fff);border:1px solid var(--sapButton_Lite_BorderColor,#0064d9);color:var(--sapLinkColor,#0064d9);white-space:nowrap;text-decoration:none">{{ p.p }}</a>
+                    <span v-else style="display:inline-flex;align-items:center;padding:.15rem .5rem;border-radius:.75rem;font-size:.72rem;font-weight:500;background:var(--sapNeutralBackground,#f5f6f7);border:1px solid var(--sapNeutralBorderColor,#d9d9d9);color:var(--sapTextColor,#32363a);white-space:nowrap">{{ p.p }}</span>
+                  </template>
+                </span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════ -->
+<!-- VIEW: PORTFOLIO                                             -->
+<!-- ════════════════════════════════════════════════════════════ -->
+<div class="ws-view" :class="{'is-active': activeView==='portfolio'}" id="view-portfolio">
+
+  <!-- LIST sub-view -->
+  <div v-if="portfolioSubView === 'list'">
+    <div class="ws-card">
+      <div class="ws-card__header" style="flex-wrap:wrap;align-items:baseline">
+        Sales Campaigns &amp; Cluster Plays
+        <span class="text-muted" style="font-size:.72rem;font-weight:400;flex-basis:100%;margin-top:.2rem">Accounts grouped by shared SAP coverage + whitespace targets &mdash; click a tile to explore the play</span>
+      </div>
+      <div class="ws-card__body" style="padding:0">
+        <div id="portfolio-clusters-table"></div>
+        <div id="portfolio-pagination" class="ws-pagination" style="padding:.5rem 1rem"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DETAIL sub-view -->
+  <div v-if="portfolioSubView === 'detail' && selectedCluster">
+
+    <div style="display:flex;align-items:center;margin-bottom:.5rem">
+      <div class="ws-breadcrumb">
+        <a style="cursor:pointer" @click="portfolioSubView='list'; portfolioCurrentPage=1; $nextTick(() => renderPortfolio())">Cluster Analysis</a>
+        <span class="ws-breadcrumb__sep">/</span>
+        <span>{{ selectedCluster.campaign_label }}</span>
+      </div>
+    </div>
+
+    <div class="ws-cluster-header">
+      <h1>
+        <span class="text-muted" style="font-size:.72rem;font-weight:400;display:block;margin-bottom:.15rem">Play</span>
+        {{ clusterPlayTitle }}
+      </h1>
+      <div class="ws-cluster-meta">
+        <span><span class="text-muted">Accounts (filtered): </span><strong>{{ portfolioClusterAccounts.length }}</strong></span>
+        <span><span class="text-muted">Total Gap: </span><strong>{{ fmtUSD(portfolioClusterGap) }}</strong></span>
+      </div>
+      <div style="margin-bottom:.4rem">
+        <div class="text-muted" style="font-size:.72rem;margin-bottom:.25rem">Live Sub-Solutions (coverage fingerprint)</div>
+        <div class="ws-badge-list">
+          <span v-for="l in selectedCluster.covered_l2s" :key="l" class="ws-badge ws-badge--covered">{{ l }}</span>
+          <span v-if="!selectedCluster.covered_l2s.length" class="text-muted" style="font-size:.75rem">(none)</span>
+        </div>
+      </div>
+      <div>
+        <div class="text-muted" style="font-size:.72rem;margin-bottom:.25rem">Target Products (industry solution reference)</div>
+        <div class="ws-badge-list">
+          <span v-for="p in clusterTargetProducts" :key="p" class="ws-badge ws-badge--whitespace">{{ p }}</span>
+          <span v-if="!clusterTargetProducts.length" class="text-muted" style="font-size:.75rem">(no industry reference data)</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="ws-card" style="margin-bottom:.75rem">
+      <div class="ws-card__header">
+        <span>Accounts in Cluster</span>
+        <span class="text-muted" id="portfolio-detail-count" style="font-size:.72rem;font-weight:400"></span>
+      </div>
+      <div class="ws-card__body" style="padding:0">
+        <div id="portfolio-detail-accounts-table"></div>
+        <div id="portfolio-detail-pagination" class="ws-pagination" style="padding:.5rem 1rem"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════ -->
+<!-- VIEW: GLOSSARY                                              -->
+<!-- ════════════════════════════════════════════════════════════ -->
+<div class="ws-view" :class="{'is-active': activeView==='glossary'}" id="view-glossary">
+  <div style="max-width:960px">
+
+    <!-- Header row -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;gap:1rem">
+      <div>
+        <div style="font-size:1.1rem;font-weight:700;color:var(--sapTextColor,#32363a);margin-bottom:.2rem">Quick Start Guide</div>
+        <div style="font-size:.8rem;color:var(--sapContent_LabelColor,#6a6d70)">Whitespace &amp; Cross-Sell Opportunity Analyzer — Account Executives &amp; Sales Management</div>
+      </div>
+      <a href="Whitespace_Analyzer_User_Guide.pdf" download style="flex-shrink:0;font-size:.8rem;color:var(--sapSelectedColor,#0070f2);text-decoration:none;display:inline-flex;align-items:center;gap:.3rem;padding:.3rem .75rem;border:1px solid var(--sapSelectedColor,#0070f2);border-radius:.25rem;white-space:nowrap" title="Download the full user guide (PowerPoint)">&#8595; Download User Guide</a>
+    </div>
+
+    <!-- Tab nav -->
+    <div id="qs-tabs" style="display:flex;gap:0;border-bottom:2px solid var(--sapList_BorderColor,#e4e4e4);margin-bottom:1rem;overflow-x:auto">
+      <button class="qs-tab is-active" data-tab="qs-start"      onclick="qsTab(this,'qs-start')"     >Get Started</button>
+      <button class="qs-tab"           data-tab="qs-concepts"   onclick="qsTab(this,'qs-concepts')"  >Key Concepts</button>
+      <button class="qs-tab"           data-tab="qs-data"       onclick="qsTab(this,'qs-data')"      >Data Sources</button>
+    </div>
+
+    <!-- ── Tab: Get Started ── -->
+    <div id="qs-start" class="qs-panel">
+
+      <div style="font-size:.8rem;color:var(--sapContent_LabelColor,#6a6d70);margin-bottom:.75rem">Three common starting points — pick the one that matches your role.</div>
+
+      <div style="display:flex;flex-direction:column;gap:.75rem">
+
+        <div class="ws-card">
+          <div class="ws-card__header" style="background:#f0f7ff">
+            <div style="display:flex;align-items:center;gap:.6rem">
+              <div style="width:1.75rem;height:1.75rem;border-radius:50%;background:var(--sapSelectedColor,#0070f2);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.8rem;flex-shrink:0">AE</div>
+              <div>
+                <div style="font-weight:700;font-size:.9rem">Weekly Territory Review</div>
+                <div style="font-weight:400;font-size:.8rem;color:var(--sapContent_LabelColor,#6a6d70)">Account Executives — start here every week</div>
+              </div>
+            </div>
+            <div style="font-size:.75rem;color:var(--sapContent_LabelColor,#6a6d70);font-weight:400">Start on: <strong>Overview page</strong></div>
+          </div>
+          <div class="ws-card__body">
+            <ol style="margin:0;padding-left:1.25rem;font-size:.85rem;line-height:1.9;color:var(--sapTextColor,#32363a)">
+              <li>Filter to your <strong>Sales Group</strong> using the filter bar at the top</li>
+              <li>Check the <strong>KPI tiles</strong> — note Total Whitespace Gap and High-Priority Accounts</li>
+              <li>Go to the <strong>Account Details table</strong> → sort by <strong>Whitespace Gap</strong> descending</li>
+              <li>Click into your top accounts → review whitespace Solution Areas, Gap to Wallet, and Recommended Solutions</li>
+              <li>Use the <strong>scope toggle</strong> (Planning Entity / Planning Entity + Top Parent) to factor in parent-company coverage before your call</li>
+            </ol>
+            <div style="background:#f0f7ff;border-radius:.3rem;padding:.6rem .875rem;margin-top:.75rem;font-size:.8rem;color:#0064d9">
+              <strong>Pro tip:</strong> Use the <strong>account search</strong> (top right of the filter bar) to jump directly to any account by name — no scrolling required.
+            </div>
+          </div>
+        </div>
+
+        <div class="ws-card">
+          <div class="ws-card__header" style="background:#f5fff5">
+            <div style="display:flex;align-items:center;gap:.6rem">
+              <div style="width:1.75rem;height:1.75rem;border-radius:50%;background:#188918;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.8rem;flex-shrink:0">Mgr</div>
+              <div>
+                <div style="font-weight:700;font-size:.9rem">QBR / Business Review Prep</div>
+                <div style="font-weight:400;font-size:.8rem;color:var(--sapContent_LabelColor,#6a6d70)">Sales Managers — before a review or QBR</div>
+              </div>
+            </div>
+            <div style="font-size:.75rem;color:var(--sapContent_LabelColor,#6a6d70);font-weight:400">Start on: <strong>Overview page</strong></div>
+          </div>
+          <div class="ws-card__body">
+            <ol style="margin:0;padding-left:1.25rem;font-size:.85rem;line-height:1.9;color:var(--sapTextColor,#32363a)">
+              <li>Review the <strong>Treemap</strong> — largest boxes show the biggest dollar gaps in your territory</li>
+              <li>Switch to <strong>Whitespace Accounts mode</strong> to compare by account count instead of dollar gap</li>
+              <li>Scan the <strong>Heatmap</strong> by Sales Group — palest cells = most accounts missing that solution</li>
+              <li>Open <strong>Account Detail</strong> for the top accounts per Solution Area to prep coaching conversations</li>
+              <li>Go to <strong>Cluster Analysis</strong> to find shared plays across the team — look for large clusters with high priority signals</li>
+            </ol>
+            <div style="background:#f5fff5;border-radius:.3rem;padding:.6rem .875rem;margin-top:.75rem;font-size:.8rem;color:#0a6e0a">
+              <strong>Pro tip:</strong> If High-Priority Accounts is large relative to Accounts with Whitespace, you have active buying signals across the team — prioritize those accounts in your next 1:1s.
+            </div>
+          </div>
+        </div>
+
+        <div class="ws-card">
+          <div class="ws-card__header" style="background:#fdf5ff">
+            <div style="display:flex;align-items:center;gap:.6rem">
+              <div style="width:1.75rem;height:1.75rem;border-radius:50%;background:#6b4f9e;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.8rem;flex-shrink:0">PL</div>
+              <div>
+                <div style="font-weight:700;font-size:.9rem">Campaign Planning</div>
+                <div style="font-weight:400;font-size:.8rem;color:var(--sapContent_LabelColor,#6a6d70)">Portfolio &amp; Industry Leads — build focused plays</div>
+              </div>
+            </div>
+            <div style="font-size:.75rem;color:var(--sapContent_LabelColor,#6a6d70);font-weight:400">Start on: <strong>Cluster Analysis</strong></div>
+          </div>
+          <div class="ws-card__body">
+            <ol style="margin:0;padding-left:1.25rem;font-size:.85rem;line-height:1.9;color:var(--sapTextColor,#32363a)">
+              <li>Open <strong>Cluster Analysis</strong> — clusters are ranked by total Gap to Wallet</li>
+              <li>Filter by <strong>Solution Area</strong> to narrow to a specific play</li>
+              <li>Scan cluster cards for large <strong>account counts</strong>, big <strong>gap</strong>, and <strong>Very High / High priority</strong> — all visible at a glance on each card</li>
+              <li>Click a cluster → check <strong>Target Products</strong> for the shared whitespace opportunity</li>
+              <li>Coordinate cross-AE outreach on the same play to multiply impact</li>
+            </ol>
+            <div style="background:#fdf5ff;border-radius:.3rem;padding:.6rem .875rem;margin-top:.75rem;font-size:.8rem;color:#5a3d8e">
+              <strong>Pro tip:</strong> If 40 accounts share Finance + HCM coverage but are missing CX and SCM — that's one campaign for all 40. Cluster Analysis surfaces exactly these patterns.
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ── Tab: Key Concepts ── -->
+    <div id="qs-concepts" class="qs-panel" style="display:none">
+
+      <div class="ws-card" style="margin-bottom:.75rem">
+        <div class="ws-card__header">Glossary</div>
+        <div class="ws-card__body" style="padding:0">
+          <table class="ws-table" style="margin:0">
+            <thead>
+              <tr>
+                <th style="width:180px">Term</th>
+                <th>What It Means</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Whitespace</strong></td>
+                <td>A Solution Area the account doesn't own yet — not live, not in project. This is the cross-sell gap.</td>
+              </tr>
+              <tr>
+                <td><strong>Gap to Wallet</strong></td>
+                <td>Uncaptured budget estimate — based on what similar companies in the same industry and revenue tier actually spend. Bigger gap = more money still on the table.</td>
+              </tr>
+              <tr>
+                <td><strong>TAO Priority</strong></td>
+                <td>AI-scored likelihood that an opportunity will open in the next 12 months. Scale: <strong>1 Very High → 5 Low</strong>. Priorities 1 and 2 are the primary action tier — they represent the top 5% of accounts and ~40% of future opportunities.</td>
+              </tr>
+              <tr>
+                <td><strong>TAO Strategy</strong></td>
+                <td>Tells you how to approach the account based on wallet share and priority: <strong>Attack</strong> (low share, high priority), <strong>Expand</strong> (high share, high priority), <strong>Digitally Nurture</strong> (low share, low priority), <strong>Defend</strong> (high share, low priority).</td>
+              </tr>
+              <tr>
+                <td><strong>Shelfware</strong></td>
+                <td>Account has the license but isn't using it. Shows as <em>covered</em>, not whitespace — this is a re-adoption conversation, not a new sale.</td>
+              </tr>
+              <tr>
+                <td><strong>RISE Customer</strong></td>
+                <td>Account already on RISE with SAP. Often the fastest path to expansion — they're already committed to the SAP ecosystem.</td>
+              </tr>
+              <tr>
+                <td><strong>Planning Entity</strong></td>
+                <td>The subsidiary-level account in SAP's CRM — the unit all data is attached to. Always check whether you're looking at a subsidiary vs. the parent.</td>
+              </tr>
+              <tr>
+                <td><strong>Top Parent</strong></td>
+                <td>The ultimate parent company. May already own solutions shown as whitespace at the Planning Entity level — use "Planning Entity + Top Parent" scope mode to account for this.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- TAO cards -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-bottom:.75rem">
+
+        <div class="ws-card">
+          <div class="ws-card__header">TAO Priority Tiers</div>
+          <div class="ws-card__body" style="padding:0">
+            <table class="ws-table" style="margin:0">
+              <thead><tr><th>Priority</th><th>Account coverage</th><th>Future opps</th></tr></thead>
+              <tbody>
+                <tr style="background:#fdecea">
+                  <td><strong>1 Very High</strong></td>
+                  <td rowspan="2" style="vertical-align:middle;background:#fdecea">Top 5%</td>
+                  <td rowspan="2" style="vertical-align:middle;background:#fdecea">~40%</td>
+                </tr>
+                <tr style="background:#fdecea"><td><strong>2 High</strong></td></tr>
+                <tr><td><strong>3 Medium</strong></td><td>Next 20%</td><td>~40%</td></tr>
+                <tr><td><strong>4 Medium Low</strong></td><td rowspan="2" style="vertical-align:middle">Bottom 75%</td><td rowspan="2" style="vertical-align:middle">~20%</td></tr>
+                <tr><td><strong>5 Low</strong></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="ws-card">
+          <div class="ws-card__header">TAO Strategy 2×2</div>
+          <div class="ws-card__body" style="padding:.75rem">
+            <div style="display:grid;grid-template-columns:auto 1fr 1fr;gap:2px;font-size:.775rem">
+              <div style="grid-column:1;grid-row:1"></div>
+              <div style="background:var(--sapList_HeaderBackground,#fafafa);padding:.4rem .5rem;text-align:center;font-weight:600;border-radius:.25rem 0 0 0">Low wallet share</div>
+              <div style="background:var(--sapList_HeaderBackground,#fafafa);padding:.4rem .5rem;text-align:center;font-weight:600;border-radius:0 .25rem 0 0">High wallet share</div>
+              <div style="background:var(--sapList_HeaderBackground,#fafafa);padding:.4rem .5rem;font-weight:600;writing-mode:horizontal-tb;border-radius:0 0 0 0;display:flex;align-items:center">High / Very High</div>
+              <div style="background:#fdecea;padding:.5rem;border-radius:0"><strong>Attack</strong><br><span style="color:var(--sapContent_LabelColor,#6a6d70)">Big gap, high propensity</span></div>
+              <div style="background:#e8f5e9;padding:.5rem;border-radius:0"><strong>Expand</strong><br><span style="color:var(--sapContent_LabelColor,#6a6d70)">High share, grow further</span></div>
+              <div style="background:var(--sapList_HeaderBackground,#fafafa);padding:.4rem .5rem;font-weight:600;display:flex;align-items:center">Medium / Low</div>
+              <div style="background:#f5f5f5;padding:.5rem;border-radius:0 0 0 .25rem"><strong>Digitally Nurture</strong><br><span style="color:var(--sapContent_LabelColor,#6a6d70)">Low share + low priority</span></div>
+              <div style="background:#fff3e0;padding:.5rem;border-radius:0 0 .25rem 0"><strong>Defend</strong><br><span style="color:var(--sapContent_LabelColor,#6a6d70)">Protect from competition</span></div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- ── Tab: Data Sources ── -->
+    <div id="qs-data" class="qs-panel" style="display:none">
+
+      <div class="ws-card" style="margin-bottom:.75rem">
+        <div class="ws-card__header">Data Sources</div>
+        <div class="ws-card__body" style="padding:0">
+          <table class="ws-table" style="margin:0">
+            <thead>
+              <tr>
+                <th style="width:180px">Source</th>
+                <th>What It Provides</th>
+                <th style="width:90px;text-align:center">Refresh</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Adoption Monitor</strong></td>
+                <td>What SAP products each account currently owns and their activation status (Live / Project / Shelfware)</td>
+                <td style="text-align:center"><span class="ws-badge ws-badge--covered">Weekly</span></td>
+              </tr>
+              <tr>
+                <td><strong>TAO</strong></td>
+                <td>Outside-in wallet estimate, Gap to Wallet, Priority Score, Strategy, Historical Pipeline</td>
+                <td style="text-align:center"><span class="ws-badge ws-badge--covered">Weekly</span></td>
+              </tr>
+              <tr>
+                <td><strong>ADRM Pipeline</strong></td>
+                <td>Current SAP forecast pipeline by account and Solution Area</td>
+                <td style="text-align:center"><span class="ws-badge ws-badge--covered">Weekly</span></td>
+              </tr>
+              <tr>
+                <td><strong>SPI</strong></td>
+                <td>Planned deal pipeline by account and Solution Area</td>
+                <td style="text-align:center"><span class="ws-badge ws-badge--covered">Weekly</span></td>
+              </tr>
+              <tr>
+                <td><strong>IAA Account Master</strong></td>
+                <td>Canonical account list — name, Sales Group, Market Unit, Top Parent</td>
+                <td style="text-align:center"><span class="ws-badge ws-badge--covered">Weekly</span></td>
+              </tr>
+              <tr>
+                <td><strong>SAP Industry Reference</strong></td>
+                <td>Curated product recommendations per industry vertical, sourced from sap.com</td>
+                <td style="text-align:center"><span class="ws-badge ws-badge--project">Quarterly</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div style="background:var(--sapList_HeaderBackground,#fafafa);border:1px solid var(--sapList_BorderColor,#e4e4e4);border-radius:.375rem;padding:.75rem 1rem;font-size:.825rem;color:var(--sapContent_LabelColor,#6a6d70)">
+        All data is refreshed by the SAP Sales Operations team. The <strong>dashboard header</strong> shows the data generation date — always check before a customer meeting.
+      </div>
+
+    </div>
+
+  </div>
+</div>
+
+</div><!-- .ws-main -->
+</div><!-- #app -->
+
+<script>/*__LIB_VUE__*/</script>
+<script>/*__LIB_CHARTJS__*/</script>
+<script>/*__LIB_TREEMAP__*/</script>
+<script type="module">
+const _gz = Uint8Array.from(atob("/*__DATA_GZ__*/"), c => c.charCodeAt(0));
+const _ds = new DecompressionStream('gzip');
+const _w = _ds.writable.getWriter(); _w.write(_gz); _w.close();
+const DATA = JSON.parse(await new Response(_ds.readable).text());
+
+// ── Quick Start tab switcher ──────────────────────────────────────────────────
+function qsTab(btn, panelId) {
+  document.querySelectorAll('.qs-tab').forEach(t => t.classList.remove('is-active'));
+  document.querySelectorAll('.qs-panel').forEach(p => p.style.display = 'none');
+  btn.classList.add('is-active');
+  document.getElementById(panelId).style.display = '';
+}
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+const L1 = DATA.sah_l1;
+const L1_SHORT = DATA.sah_l1_short || L1;
+const L2_PER_L1 = DATA.sah_l2_per_l1 || L1.map(() => []);
+const L3_PER_L2 = DATA.sah_l3_per_l2 || L1.map(() => []);
+
+// Stable per-L1 colors — index-keyed so both charts always use the same color for the same L1
+const _PALETTE = ["#0070f2","#e9730c","#188918","#bb0000","#6b4f9e","#0f828f","#cc3340","#b44f1f","#1c6b3a","#c87f00","#5a5a8a","#007d7d"];
+const L1_COLORS = L1.map((_, i) => _PALETTE[i % _PALETTE.length]);
+
+function esc(s) {
+  if (s == null) return "";
+  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+
+function fmtUSD(n) {
+  if (n == null || isNaN(n)) return "–";
+  const usd = n * 1000;
+  if (usd >= 1e9) return "$" + (usd / 1e9).toFixed(1) + "B";
+  if (usd >= 1e6) return "$" + (usd / 1e6).toFixed(1) + "M";
+  if (usd >= 1e3) return "$" + (usd / 1e3).toFixed(0) + "K";
+  return "$" + usd.toFixed(0);
+}
+// Rounds a KUSD value to a clean label boundary (nearest 50K, 100K, 500K, or 1M depending on magnitude)
+function roundKusd(kusd) {
+  const usd = kusd * 1000;
+  if (usd >= 10e6)  return Math.round(usd / 1e6)  * 1e6  / 1000;
+  if (usd >= 1e6)   return Math.round(usd / 500e3) * 500e3 / 1000;
+  if (usd >= 100e3) return Math.round(usd / 100e3) * 100e3 / 1000;
+  return Math.round(usd / 50e3) * 50e3 / 1000;
+}
+// Builds a quintile gap scale from an array of KUSD values.
+// Returns { cls(kusd): CSS class string, legendHTML: string }
+function buildGapScale(gapValues) {
+  const CLASSES = ["gap-q1","gap-q2","gap-q3","gap-q4","gap-q5"];
+  const BG      = ["#e8f3ff","#b3d4f5","#5ba0e0","#1a6cb5","#003d8f"];
+  const pos = gapValues.filter(v => v > 0).sort((a, b) => a - b);
+  if (!pos.length) {
+    return { cls: () => "", legendHTML: "" };
+  }
+  const cuts = [...new Set([1, 2, 3, 4].map(q => pos[Math.floor(q / 5 * pos.length)]))];
+  function cls(kusd) {
+    if (!kusd || kusd <= 0) return "";
+    for (let i = 0; i < cuts.length; i++) if (kusd < cuts[i]) return CLASSES[i];
+    return CLASSES[cuts.length];
+  }
+  const swatches = CLASSES.map((c, i) => {
+    const lo = i === 0 ? 0 : cuts[i - 1];
+    const hi = i < cuts.length ? cuts[i] : null;
+    const label = i === 0 ? `&lt; ${fmtUSD(roundKusd(cuts[0]))}` : hi != null ? `${fmtUSD(roundKusd(lo))} – ${fmtUSD(roundKusd(hi))}` : `≥ ${fmtUSD(roundKusd(lo))}`;
+    return `<span><span class="ws-gap-legend__swatch" style="background:${BG[i]}"></span><span class="ws-gap-legend__label">${label}</span></span>`;
+  }).join("");
+  const legendHTML = `<div class="ws-gap-legend"><strong style="font-size:.72rem;color:var(--sapContent_LabelColor,#6a6d70);margin-right:.25rem">Gap quintiles:</strong>${swatches}</div>`;
+  return { cls, legendHTML };
+}
+function tagBadge(tag) {
+  if (!tag) return "";
+  const map = {CM:"ws-badge--covered",AM:"ws-badge--prospect",CC:"ws-badge--covered",AC:"ws-badge--prospect",CO:"ws-badge--shelfware",AO:"ws-badge--shelfware"};
+  return map[tag] || "";
+}
+
+// Lerp color: 0=white, 0.5=amber, 1=red (kept for legacy use)
+function heatColor(ratio) {
+  if (ratio <= 0) return "transparent";
+  if (ratio < 0.5) {
+    const t = ratio * 2;
+    const r = Math.round(255);
+    const g = Math.round(255 - t * (255 - 115));
+    const b = Math.round(255 - t * 255);
+    return `rgba(${r},${g},${b},${0.3 + t * 0.5})`;
+  } else {
+    const t = (ratio - 0.5) * 2;
+    const r = Math.round(255);
+    const g = Math.round(115 - t * 115);
+    const b = 0;
+    return `rgba(${r},${g},${b},${0.7 + t * 0.3})`;
+  }
+}
+
+// Tint a hex color at 0→8% opacity (near-white) to 1→85% opacity (near-full)
+function colTint(hex, ratio) {
+  if (ratio <= 0) return "transparent";
+  const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+  const alpha = 0.08 + ratio * 0.77;
+  return `rgba(${r},${g},${b},${alpha.toFixed(2)})`;
+}
+// Darker text for very light tints so values remain readable
+function colTintText(ratio) { return ratio > 0.45 ? "#fff" : "inherit"; }
+
+// ── Charts state ─────────────────────────────────────────────────────────────
+const charts = {};
+function destroyChart(id) { if (charts[id]) { charts[id].destroy(); delete charts[id]; } }
+
+const PRI_SHORT = { "1 Very High": "Very High", "2 High": "High", "3 Medium": "Medium", "4 Low": "Low", "5 Very Low": "Very Low" };
+
+// ── Vue App ───────────────────────────────────────────────────────────────────
+const { createApp, computed, watch, nextTick, markRaw } = Vue;
+
+const app = createApp({
+  data() {
+    return {
+      DATA: markRaw(DATA),
+      activeView: "overview",
+      prevView: "overview",
+      selectedAccount: null,
+      accountNavList: [],
+      accountNavIdx: -1,
+
+      overviewSort: { col: "gap", dir: "desc" },
+      overviewCurrentPage: 1,
+      overviewPageSize: 50,
+      sortPortfolioDetail: { col: "gap", dir: "desc" },
+      selectedAcctSA: null,   // index into L1, or null = show all
+      treemapDrillL1: null,  // L1 index currently drilled into on overview treemap, or null
+      treemapDrillL2: null,  // L2 index within drilled L1 for L3 drill, or null
+      measureView: 'gap',    // 'gap' | 'accounts' — shared across treemap, bubble, heatmap
+      bubbleDrillL1: null,   // L1 index currently drilled into on bubble chart, or null
+      accountTableView: "status",  // "status" | "tao_gap" | "lpr_count"
+      selectedCluster: null,
+      portfolioSubView: "list",
+      portfolioCurrentPage: 1,
+      portfolioPageSize: 50,
+      sortPortfolio: { col: "gap", dir: "desc" },
+      filters: {
+        selectedOffice: [],
+        selectedGroup: [],
+        selectedIndustry: [],
+        selectedStrategy: [],
+        selectedPriority: [],
+        selectedL1: [],
+        selectedRise: [],
+        selectedSic: '',
+        selectedArch: [],
+        selectedRev: [],
+        selectedIAC: [],
+        selectedGeoL3: [],
+        selectedAE: [],
+        selectedSalesMgr: [],
+        selectedSeg: [],
+        selectedRBC: [],
+        selectedNSolB: [],
+      },
+      openDropdown: null,
+      l1FilterMode: 'any',
+      filtersExpanded: false,
+      portfolioFiltersExpanded: false,
+      openPortfolioDropdown: null,
+      clusterFilters: { selectedCovL1: [], selectedWsL1: [], selectedWsL1Top: [] },
+      clusterCovL1Mode: 'any',
+      clusterWsL1Mode: 'any',
+      accountSearch: "",
+      searchFocused: false,
+      searchCursor: 0,
+      scopeMode: 'pe',
+    };
+  },
+
+  computed: {
+    quarterLabel() {
+      const ts = DATA.meta && DATA.meta.generated_at;
+      if (!ts) return "";
+      const d = new Date(ts);
+      const q = Math.ceil((d.getUTCMonth() + 1) / 3);
+      return `Q${q} ${d.getUTCFullYear()}`;
+    },
+    allOffices() {
+      return [...new Set(this._accountsFor('so').map(a => a.so))].filter(Boolean).sort();
+    },
+    accountSearchResults() {
+      const q = this.accountSearch.trim().toLowerCase();
+      if (!q) return [];
+      const terms = q.split(/\s+/);
+      const scored = [];
+      for (const a of DATA.accounts) {
+        const name = (a.name || "").toLowerCase();
+        let score = 0;
+        for (const t of terms) {
+          const idx = name.indexOf(t);
+          if (idx === -1) { score = -1; break; }
+          score += (idx === 0 ? 10 : 1);
+        }
+        if (score >= 0) scored.push({ a, score });
+      }
+      scored.sort((x, y) => y.score - x.score || x.a.name.localeCompare(y.a.name));
+      return scored.slice(0, 12).map(s => s.a);
+    },
+    availableGroups() {
+      return [...new Set(this._accountsFor('sg').map(a => a.sg))].filter(Boolean).sort();
+    },
+    allL1s() {
+      return DATA.sah_l1 ? [...DATA.sah_l1] : [];
+    },
+    allIndustries() {
+      return [...new Set(this._accountsFor('ind').map(a => a.ind).filter(Boolean))].sort();
+    },
+    allArchetypes() {
+      return [...new Set(this._accountsFor('arch').map(a => a.arch).filter(Boolean))].sort();
+    },
+    allRevenueBands() {
+      return [...new Set(this._accountsFor('rev').map(a => a.rev).filter(Boolean))].sort();
+    },
+    allIACs() {
+      return [...new Set(this._accountsFor('iac').map(a => a.iac).filter(Boolean))].sort();
+    },
+    allGeoL3s() {
+      return [...new Set(this._accountsFor('geo_l3').map(a => a.geo_l3).filter(Boolean))].sort();
+    },
+    allAEs() {
+      return [...new Set(this._accountsFor('terr_emp').map(a => a.terr_emp).filter(Boolean))].sort();
+    },
+    allSalesMgrs() {
+      return [...new Set(this._accountsFor('terr_mgr').map(a => a.terr_mgr).filter(Boolean))].sort();
+    },
+    allSegments() {
+      return [...new Set(this._accountsFor('seg').map(a => a.seg).filter(Boolean))].sort();
+    },
+    allRBCs() {
+      return [...new Set(this._accountsFor('rbc').map(a => a.rbc).filter(Boolean))].sort();
+    },
+    allNSolBands() {
+      return [...new Set(this._accountsFor('n_sol_b').map(a => a.n_sol_b).filter(Boolean))].sort();
+    },
+    allPriorities() {
+      const PRI_ORDER = ["1 Very High", "2 High", "3 Medium", "4 Low", "5 Very Low"];
+      const seen = new Set();
+      DATA.accounts.forEach(a => a.tao.forEach(t => { if (t && t.pri) seen.add(t.pri); }));
+      return PRI_ORDER.filter(p => seen.has(p));
+    },
+    allStrategies() {
+      const seen = new Set();
+      DATA.accounts.forEach(a => {
+        (a.tao || []).forEach(t => { if (t && t.strat) seen.add(t.strat); });
+      });
+      return [...seen].sort();
+    },
+    allRise() { return ["Yes", "No"]; },
+    hasActiveFilters() {
+      return Object.values(this.filters).some(v => v.length > 0);
+    },
+    activeFilterCount() {
+      return Object.values(this.filters).filter(v => v.length > 0).length;
+    },
+    clusterFilterCount() {
+      return (this.clusterFilters.selectedCovL1.length > 0 ? 1 : 0) +
+             (this.clusterFilters.selectedWsL1.length > 0 ? 1 : 0) +
+             (this.clusterFilters.selectedWsL1Top.length > 0 ? 1 : 0);
+    },
+    allCovL2s() {
+      const s = new Set();
+      if (DATA.clusters) {
+        for (const c of DATA.clusters) {
+          for (const l2 of (c.covered_l2s || [])) s.add(l2);
+        }
+      }
+      return [...s].sort();
+    },
+    allWsL2s() {
+      const s = new Set();
+      if (DATA.clusters) {
+        for (const c of DATA.clusters) {
+          for (const l2 of (c.ws_l2s || [])) s.add(l2);
+        }
+      }
+      return [...s].sort();
+    },
+    allWsL1sTop() {
+      const l2ToL1 = {};
+      L2_PER_L1.forEach((l2s, i) => l2s.forEach(l2 => { l2ToL1[l2] = L1[i]; }));
+      const s = new Set();
+      if (DATA.clusters) {
+        for (const c of DATA.clusters) {
+          for (const l2 of (c.ws_l2s || [])) {
+            const l1 = l2ToL1[l2];
+            if (l1) s.add(l1);
+          }
+        }
+      }
+      return [...s].sort();
+    },
+    activeFilterPills() {
+      const f = this.filters;
+      const pills = [];
+      const makeLabel = (key, val) => {
+        if (key === 'selectedRBC')      return 'RBC: ' + val;
+        if (key === 'selectedRise')     return 'RISE: ' + val;
+        if (key === 'selectedIAC')      return 'IAC: ' + val;
+        if (key === 'selectedGeoL3')    return 'GEO-Level 3: ' + val;
+        if (key === 'selectedAE')       return "AE's: " + val;
+        if (key === 'selectedSalesMgr') return 'Sales Manager: ' + val;
+        if (key === 'selectedNSolB')    return val + ' solutions';
+        if (key === 'selectedPriority') return PRI_SHORT[val] || val;
+        return val;
+      };
+      const ORDER = ['selectedOffice','selectedGroup','selectedGeoL3','selectedAE','selectedSalesMgr','selectedIndustry','selectedSeg','selectedRBC','selectedArch','selectedRise','selectedIAC','selectedRev','selectedL1','selectedNSolB','selectedStrategy','selectedPriority'];
+      for (const key of ORDER) {
+        for (const val of (f[key] || [])) {
+          pills.push({ key, value: val, label: makeLabel(key, val) });
+        }
+      }
+      return pills;
+    },
+    activeFilterSummary() {
+      return Object.entries(this.filters)
+        .flatMap(([k, vals]) => (Array.isArray(vals) ? vals : []).map(v => k === 'selectedPriority' ? (PRI_SHORT[v] || v) : v))
+        .join("  ·  ");
+    },
+    filteredAccounts() {
+      const f = this.filters;
+      return DATA.accounts.filter(a => {
+        if (a.is_p) return false;
+        if (f.selectedOffice.length   && !f.selectedOffice.includes(a.so))       return false;
+        if (f.selectedGroup.length    && !f.selectedGroup.includes(a.sg))        return false;
+        if (f.selectedIndustry.length && !f.selectedIndustry.includes(a.ind))    return false;
+        if (f.selectedArch.length     && !f.selectedArch.includes(a.arch))       return false;
+        if (f.selectedRev.length      && !f.selectedRev.includes(a.rev))         return false;
+        if (f.selectedIAC.length      && !f.selectedIAC.includes(a.iac))         return false;
+        if (f.selectedGeoL3.length    && !f.selectedGeoL3.includes(a.geo_l3))    return false;
+        if (f.selectedAE.length       && !f.selectedAE.includes(a.terr_emp))      return false;
+        if (f.selectedSalesMgr.length && !f.selectedSalesMgr.includes(a.terr_mgr)) return false;
+        if (f.selectedSic) {
+          const sics = f.selectedSic.split(',').map(s => s.trim()).filter(Boolean);
+          if (sics.length && !sics.some(s => (a.sic || '').startsWith(s))) return false;
+        }
+        if (f.selectedSeg.length      && !f.selectedSeg.includes(a.seg))         return false;
+        if (f.selectedRBC.length      && !f.selectedRBC.includes(a.rbc))         return false;
+        if (f.selectedNSolB.length    && !f.selectedNSolB.includes(a.n_sol_b))   return false;
+        if (f.selectedStrategy.length) {
+          if (!a.tao.some(t => t && f.selectedStrategy.includes(t.strat))) return false;
+        }
+        if (f.selectedPriority.length) {
+          if (!a.tao.some(t => t && f.selectedPriority.includes(t.pri))) return false;
+        }
+        if (f.selectedL1.length) {
+          const checkL1ws = (l1) => {
+            const idx = L1.indexOf(l1);
+            if (idx === -1) return false;
+            const effectiveW = this.effectiveWs(a)[idx];
+            if (effectiveW && this.scopeMode === 'pe_tp') {
+              const tpCoversL1 = a.tp_l2s && a.tp_l2s[idx] && a.tp_l2s[idx].some(v => v === 1);
+              if (tpCoversL1) effectiveW = null;
+            }
+            return !!effectiveW;
+          };
+          const passes = this.l1FilterMode === 'all'
+            ? f.selectedL1.every(checkL1ws)
+            : f.selectedL1.some(checkL1ws);
+          if (!passes) return false;
+        }
+        if (f.selectedRise.length) {
+          const riseStr = a.rise ? "Yes" : "No";
+          if (!f.selectedRise.includes(riseStr)) return false;
+        }
+        return true;
+      });
+    },
+    kpis() {
+      const accts = this.filteredAccounts;
+      let totalGap = 0, totalGapRaw = 0, highPriAccounts = 0, wsAccounts = 0;
+      for (const a of accts) {
+        let hasWs = false, hasHighPri = false;
+        const ews = this.effectiveWs(a);
+        for (let i = 0; i < L1.length; i++) {
+          const w = ews[i];
+          const t = a.tao[i];
+          if (t && t.gap) totalGapRaw += t.gap;
+          if (!w) continue;
+          hasWs = true;
+          if (t && t.gap) totalGap += t.gap;
+          if (t && t.pri && (t.pri.startsWith("1 ") || t.pri.startsWith("2 "))) hasHighPri = true;
+        }
+        if (hasWs) wsAccounts++;
+        if (hasHighPri) highPriAccounts++;
+      }
+      const riseAccounts = accts.filter(a => a.rise).length;
+      return { totalGap, totalGapRaw, totalAccounts: accts.length, highPriAccounts, wsAccounts, riseAccounts };
+    },
+acctSARows() {
+      const a = this.selectedAccount;
+      if (!a) return [];
+      const rows = [];
+      const l1Filter = this.selectedAcctSA;
+      const owned = new Set((a.cov_products || []).flat());
+      // Build set of L2 names covered by the top parent
+      const tpL2Covered = new Set();
+      if (a.tp_l2s) {
+        a.tp_l2s.forEach((l2Flags, i) => {
+          const l2Names = L2_PER_L1[i] || [];
+          l2Flags.forEach((flag, j) => { if (flag) tpL2Covered.add(l2Names[j]); });
+        });
+      }
+      L1.forEach((l1, i) => {
+        if (l1Filter !== null && i !== l1Filter) return;
+        const tao = a.tao[i] || null;
+        const pipe = (a.pipe[i] > 0) ? a.pipe[i] : null;
+        const spi  = (a.spi && a.spi[i] > 0) ? a.spi[i] : null;
+        const prods = (a.prods || []).filter(p => p.l1 === l1 && !owned.has(p.p) && !tpL2Covered.has(p.l2));
+        if (!tao && pipe == null && spi == null && !prods.length) return;
+        rows.push({ l1, tao, pipe, spi, prods });
+      });
+      rows.sort((x, y) => ((y.tao && y.tao.gap) || 0) - ((x.tao && x.tao.gap) || 0));
+      return rows;
+    },
+    prevViewLabel() {
+      const map = { overview: "Overview", sa: "Solution Areas", portfolio: "Cluster Analysis" };
+      return map[this.prevView] || "Back";
+    },
+    portfolioClusterAccounts() {
+      if (!this.selectedCluster) return [];
+      const ids = new Set(this.selectedCluster.account_ids);
+      return DATA.accounts.filter(a => !a.is_p && ids.has(a.id));
+    },
+    clusterPlayTitle() {
+      if (!this.selectedCluster) return "";
+      const l2s    = (this.selectedCluster.covered_l2s || []).join(" + ") || "(none)";
+      const target = (this.selectedCluster.ws_l2s || [])[0] || "(none)";
+      return `${l2s} → ${target}`;
+    },
+    portfolioClusterGap() {
+      if (!this.selectedCluster) return 0;
+      const ws_l2s = this.selectedCluster.ws_l2s || [];
+      let g = 0;
+      for (const a of this.portfolioClusterAccounts) {
+        for (const targetL2 of ws_l2s) {
+          const l2Idx = L2_PER_L1.findIndex(l2s => l2s.includes(targetL2));
+          const l2Pos = l2Idx >= 0 ? L2_PER_L1[l2Idx].indexOf(targetL2) : -1;
+          if (l2Idx >= 0 && l2Pos >= 0 && a.tao_l2 && a.tao_l2[l2Idx]) {
+            const d = a.tao_l2[l2Idx][l2Pos];
+            if (d && d.gap) g += d.gap;
+          }
+        }
+      }
+      return g;
+    },
+    clusterTargetProducts() {
+      if (!this.selectedCluster) return [];
+      const ws_l2s = this.selectedCluster.ws_l2s || [];
+      if (!ws_l2s.length) return [];
+      const accts = this.portfolioClusterAccounts;
+      const hitCount = new Map();
+      for (const a of accts) {
+        const seen = new Set();
+        for (const targetL2 of ws_l2s) {
+          for (const p of (a.prods || [])) {
+            if (p.l2 === targetL2 && !seen.has(p.p)) {
+              hitCount.set(p.p, (hitCount.get(p.p) || 0) + 1);
+              seen.add(p.p);
+            }
+          }
+        }
+      }
+      return [...hitCount.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .map(([name]) => name);
+    },
+  },
+
+  watch: {
+    filteredAccounts() {
+      this.portfolioCurrentPage = 1;
+      this.overviewCurrentPage = 1;
+      this.refreshActiveView();
+    },
+    activeView(v) {
+      nextTick(() => this.refreshView(v));
+    },
+    'filters.selectedOffice'() {
+      const available = new Set(this.availableGroups);
+      this.filters.selectedGroup = this.filters.selectedGroup.filter(g => available.has(g));
+    },
+    'filters.selectedL1'() {
+      const sel = this.filters.selectedL1;
+      if (sel.length === 1) {
+        const newIdx = L1.indexOf(sel[0]);
+        this.treemapDrillL1 = newIdx >= 0 ? newIdx : null;
+        this.bubbleDrillL1  = newIdx >= 0 ? newIdx : null;
+        this.treemapDrillL2 = null;
+      } else {
+        this.treemapDrillL1 = null;
+        this.bubbleDrillL1  = null;
+        this.treemapDrillL2 = null;
+      }
+      nextTick(() => {
+        if (this.activeView === "overview") { this.renderOverview(); }
+      });
+    },
+    'overviewSort': { deep: true, handler() { this.overviewCurrentPage = 1; nextTick(() => this.renderTopAccountsTable()); } },
+    accountSearch() { this.searchCursor = 0; },
+    clusterFilters: {
+      deep: true,
+      handler() {
+        this.portfolioCurrentPage = 1;
+        if (this.activeView === 'portfolio' && this.portfolioSubView === 'list') {
+          nextTick(() => this.renderPortfolioList());
+        }
+      }
+    },
+    clusterCovL1Mode() {
+      if (this.activeView === 'portfolio' && this.portfolioSubView === 'list') {
+        nextTick(() => this.renderPortfolioList());
+      }
+    },
+    clusterWsL1Mode() {
+      if (this.activeView === 'portfolio' && this.portfolioSubView === 'list') {
+        nextTick(() => this.renderPortfolioList());
+      }
+    },
+  },
+
+  methods: {
+    fmtUSD, tagBadge,
+    // Returns accounts passing all filters EXCEPT the one for `skip` field.
+    // Used by allX computed properties so each dropdown shows options relevant
+    // to the other active filters while still allowing multi-select within itself.
+    _accountsFor(skip) {
+      const f = this.filters;
+      return DATA.accounts.filter(a => {
+        if (a.is_p) return false;
+        if (skip !== 'so'       && f.selectedOffice.length   && !f.selectedOffice.includes(a.so))         return false;
+        if (skip !== 'sg'       && f.selectedGroup.length    && !f.selectedGroup.includes(a.sg))          return false;
+        if (skip !== 'ind'      && f.selectedIndustry.length && !f.selectedIndustry.includes(a.ind))      return false;
+        if (skip !== 'arch'     && f.selectedArch.length     && !f.selectedArch.includes(a.arch))         return false;
+        if (skip !== 'rev'      && f.selectedRev.length      && !f.selectedRev.includes(a.rev))           return false;
+        if (skip !== 'iac'      && f.selectedIAC.length      && !f.selectedIAC.includes(a.iac))           return false;
+        if (skip !== 'geo_l3'   && f.selectedGeoL3.length    && !f.selectedGeoL3.includes(a.geo_l3))      return false;
+        if (skip !== 'terr_emp' && f.selectedAE.length       && !f.selectedAE.includes(a.terr_emp))       return false;
+        if (skip !== 'terr_mgr' && f.selectedSalesMgr.length && !f.selectedSalesMgr.includes(a.terr_mgr)) return false;
+        if (skip !== 'seg'      && f.selectedSeg.length      && !f.selectedSeg.includes(a.seg))           return false;
+        if (skip !== 'rbc'      && f.selectedRBC.length      && !f.selectedRBC.includes(a.rbc))           return false;
+        if (skip !== 'n_sol_b'  && f.selectedNSolB.length    && !f.selectedNSolB.includes(a.n_sol_b))     return false;
+        // structural filters always apply
+        if (f.selectedStrategy.length && !a.tao.some(t => t && f.selectedStrategy.includes(t.strat))) return false;
+        if (f.selectedPriority.length && !a.tao.some(t => t && f.selectedPriority.includes(t.pri)))   return false;
+        if (f.selectedL1.length) {
+          const checkL1ws = (l1) => {
+            const idx = L1.indexOf(l1);
+            if (idx === -1) return false;
+            const ew = this.effectiveWs(a);
+            if (!ew[idx]) return false;
+            if (this.scopeMode === 'pe_tp' && a.tp_l2s && a.tp_l2s[idx] && a.tp_l2s[idx].some(v => v === 1)) return false;
+            return true;
+          };
+          const passes = this.l1FilterMode === 'all' ? f.selectedL1.every(checkL1ws) : f.selectedL1.some(checkL1ws);
+          if (!passes) return false;
+        }
+        if (f.selectedRise.length) {
+          if (!f.selectedRise.includes(a.rise ? "Yes" : "No")) return false;
+        }
+        return true;
+      });
+    },
+
+
+    reloadPage() { location.href = location.pathname + "?_=" + Date.now(); },
+
+    prioBubble(pri) {
+      const ALLOWED = ["1 Very High","2 High","3 Medium","4 Low","5 Very Low"];
+      if (!ALLOWED.includes(pri)) return '';
+      const map = {
+        '1': { bg: '#fde8e8', color: '#c0392b', label: '1 Very High' },
+        '2': { bg: '#fef3e2', color: '#d35400', label: '2 High' },
+        '3': { bg: '#fef9e7', color: '#b8860b', label: '3 Medium' },
+        '4': { bg: '#eafaf1', color: '#1a7a3a', label: '4 Low' },
+        '5': { bg: '#e8f5e9', color: '#388e3c', label: '5 Very Low' },
+      };
+      const key = pri ? String(pri).charAt(0) : '';
+      const s = map[key] || { bg: '#f0f0f0', color: '#666' };
+      const label = esc(pri || '');
+      return `<span style="display:inline-flex;align-items:center;padding:.15rem .55rem;border-radius:.75rem;font-size:.72rem;font-weight:600;background:${s.bg};color:${s.color};white-space:nowrap">${label}</span>`;
+    },
+
+    parseHist(str) {
+      const out = { won: 0, lost: 0, discontinued: 0 };
+      if (!str) return out;
+      const re = /(Won|Booked|Lost|Discontinued)\((\d+)\)/gi;
+      let m;
+      while ((m = re.exec(str)) !== null) {
+        const key = m[1].toLowerCase();
+        const n = parseInt(m[2], 10);
+        if (key === 'won' || key === 'booked') out.won += n;
+        else if (key === 'lost') out.lost += n;
+        else if (key === 'discontinued') out.discontinued += n;
+      }
+      return out;
+    },
+
+    effectiveWs(a) {
+      return a.ws.map((w, i) => {
+        if (a.cov_any[i] && !a.cov[i]) return null;
+        if (w && this.scopeMode === 'pe_tp') {
+          const tpCoversL1 = a.tp_l2s && a.tp_l2s[i] && a.tp_l2s[i].some(f => f === 1);
+          if (tpCoversL1) return null;
+        }
+        return w;
+      });
+    },
+
+    effectiveWsL2(a, i, j) {
+      if (a.l2s[i][j] !== 0) return false;
+      if (this.scopeMode === 'pe_tp' && a.tp_l2s && a.tp_l2s[i] && a.tp_l2s[i][j] === 1) return false;
+      return true;
+    },
+
+    resetFilters() {
+      for (const key of Object.keys(this.filters)) {
+        this.filters[key] = key === 'selectedSic' ? '' : [];
+      }
+      this.l1FilterMode = 'any';
+      this.treemapDrillL1 = null;
+      this.bubbleDrillL1 = null;
+      this.treemapDrillL2 = null;
+    },
+    clearFilter(key, value) {
+      if (value !== undefined) {
+        this.filters[key] = this.filters[key].filter(v => v !== value);
+      } else {
+        this.filters[key] = [];
+      }
+      if (key === 'selectedOffice') {
+        const available = new Set(this.availableGroups);
+        this.filters.selectedGroup = this.filters.selectedGroup.filter(g => available.has(g));
+      }
+    },
+
+    onSearchBlur() {
+      // defer so mousedown on item fires first
+      setTimeout(() => { this.searchFocused = false; this.searchCursor = 0; }, 150);
+    },
+    searchCursorMove(dir) {
+      const max = this.accountSearchResults.length - 1;
+      this.searchCursor = Math.max(0, Math.min(max, this.searchCursor + dir));
+    },
+    searchSelectCursor() {
+      const r = this.accountSearchResults[this.searchCursor];
+      if (r) this.searchSelectAccount(r);
+    },
+    searchSelectAccount(account) {
+      this.accountSearch = "";
+      this.searchFocused = false;
+      this.searchCursor = 0;
+      this.openAccount(account, null, -1);
+    },
+    searchClose() {
+      this.accountSearch = "";
+      this.searchFocused = false;
+      this.searchCursor = 0;
+    },
+
+    navigate(view, opts = {}) {
+      if (view === "account" && !this.selectedAccount) return;
+      if (this.activeView !== "account") this.prevView = this.activeView;
+      this.activeView = view;
+      this.scrollToTop();
+    },
+
+    openAccount(account, navList, navIdx) {
+      if (this.activeView !== "account") this.prevView = this.activeView;
+      this.selectedAccount = account;
+      this.accountNavList = navList || [];
+      this.accountNavIdx = navIdx != null ? navIdx : -1;
+      this.selectedAcctSA = null;
+      this.activeView = "account";
+      this.scrollToTop();
+      nextTick(() => this.renderCoverageGrid());
+    },
+
+    scrollToTop() {
+      const el = document.querySelector(".ws-main");
+      if (el) el.scrollTop = 0;
+    },
+
+    prevAccount() {
+      if (this.accountNavIdx > 0) {
+        this.accountNavIdx--;
+        this.selectedAccount = this.accountNavList[this.accountNavIdx];
+        this.selectedAcctSA = null;
+        this.scrollToTop();
+        nextTick(() => this.renderCoverageGrid());
+      }
+    },
+    nextAccount() {
+      if (this.accountNavIdx < this.accountNavList.length - 1) {
+        this.accountNavIdx++;
+        this.selectedAccount = this.accountNavList[this.accountNavIdx];
+        this.selectedAcctSA = null;
+        this.scrollToTop();
+        nextTick(() => this.renderCoverageGrid());
+      }
+    },
+
+    refreshActiveView() {
+      nextTick(() => this.refreshView(this.activeView));
+    },
+
+    refreshView(v) {
+      if (v === "overview")   this.renderOverview();
+      if (v === "account")    this.renderCoverageGrid();
+      if (v === "portfolio")  this.renderPortfolio();
+    },
+
+    // ── OVERVIEW ───────────────────────────────────────────────────────────
+    renderOverview() {
+      this.renderHeatmap();
+      this.renderTopAccountsTable();
+      this.renderTreemap();
+      this.renderBubble();
+    },
+
+    filterAccountsWithoutL1(accounts) {
+      const f = this.filters;
+      return accounts.filter(a => {
+        if (f.selectedOffice.length   && !f.selectedOffice.includes(a.so))     return false;
+        if (f.selectedGroup.length    && !f.selectedGroup.includes(a.sg))      return false;
+        if (f.selectedIndustry.length && !f.selectedIndustry.includes(a.ind))  return false;
+        if (f.selectedArch.length     && !f.selectedArch.includes(a.arch))     return false;
+        if (f.selectedRev.length      && !f.selectedRev.includes(a.rev))       return false;
+        if (f.selectedIAC.length      && !f.selectedIAC.includes(a.iac))       return false;
+        if (f.selectedSic) {
+          const sics = f.selectedSic.split(',').map(s => s.trim()).filter(Boolean);
+          if (sics.length && !sics.some(s => (a.sic || '').startsWith(s))) return false;
+        }
+        if (f.selectedSeg.length      && !f.selectedSeg.includes(a.seg))       return false;
+        if (f.selectedRBC.length      && !f.selectedRBC.includes(a.rbc))       return false;
+        if (f.selectedNSolB.length    && !f.selectedNSolB.includes(a.n_sol_b)) return false;
+        if (f.selectedStrategy.length && !a.tao.some(t => t && f.selectedStrategy.includes(t.strat))) return false;
+        if (f.selectedPriority.length && !a.tao.some(t => t && f.selectedPriority.includes(t.pri)))   return false;
+        if (f.selectedRise.length) {
+          const wantRise = f.selectedRise.includes("Yes");
+          if (wantRise !== !!a.rise) return false;
+        }
+        return true;
+      });
+    },
+
+    renderHeatmap() {
+      const el = document.getElementById("heatmap-container");
+      if (!el) return;
+      const accts = this.filteredAccounts;
+
+      // Sales groups always come from the full account list so the vertical axis never changes with filters
+      const allGroups = [...new Set(DATA.accounts.filter(a => !a.is_p && a.sg).map(a => a.sg))].sort();
+      if (!allGroups.length) { el.innerHTML = "<p class='text-muted' style='padding:1rem'>No data</p>"; return; }
+
+      const selectedL1 = this.filters.selectedL1.length === 1 ? this.filters.selectedL1[0] : null;
+      const drillIdx   = selectedL1 ? L1.indexOf(selectedL1) : -1;
+      const isDrilled  = drillIdx >= 0;
+
+      const isAccountsMode = this.measureView === 'accounts';
+
+      if (isDrilled) {
+        // Drill-down mode: columns = L2s of the selected L1
+        const l2Names = (DATA.sah_l2_per_l1 || [])[drillIdx] || [];
+        const colCount = l2Names.length;
+
+        const mat = {};
+        let maxVal = 0;
+        if (isAccountsMode) {
+          // Must bypass the selectedL1 filter: accounts with L1 whitespace all have l2s===0
+          // for every j, which would make every column identical (L1 count, not L2 count).
+          // Mirror the treemap's approach and count all non-prospect accounts per L2.
+          const heatmapAccts = this.filterAccountsWithoutL1(DATA.accounts.filter(a => !a.is_p));
+          for (const a of heatmapAccts) {
+            const sg = a.sg; if (!sg) continue;
+            if (!mat[sg]) mat[sg] = new Array(colCount).fill(0);
+            const l2row = a.l2s && a.l2s[drillIdx];
+            if (!l2row) continue;
+            for (let j = 0; j < colCount; j++) {
+              if ((l2row[j] || 0) === 0) { mat[sg][j]++; if (mat[sg][j] > maxVal) maxVal = mat[sg][j]; }
+            }
+          }
+        } else {
+          for (const a of accts) {
+            const sg = a.sg; if (!sg) continue;
+            if (!mat[sg]) mat[sg] = new Array(colCount).fill(0);
+            const l2row = a.tao_l2 && a.tao_l2[drillIdx];
+            if (!l2row) continue;
+            for (let j = 0; j < colCount; j++) {
+              const t = l2row[j];
+              if (t && t.gap > 0) { mat[sg][j] += t.gap; if (mat[sg][j] > maxVal) maxVal = mat[sg][j]; }
+            }
+          }
+        }
+
+        let html = `<table class="ws-heatmap"><thead><tr><th class="row-header">Sales Group</th>`;
+        for (const name of l2Names) html += `<th title="${esc(name)}">${esc(name)}</th>`;
+        html += "</tr></thead><tbody>";
+        for (const sg of allGroups) {
+          html += `<tr><td class="row-header">${esc(sg)}</td>`;
+          for (let j = 0; j < colCount; j++) {
+            const val = (mat[sg] || [])[j] || 0;
+            const ratio = maxVal > 0 ? val / maxVal : 0;
+            const tintRatio = ratio;
+            const bg = colTint(L1_COLORS[drillIdx], ratio > 0 ? Math.max(tintRatio, 0.08) : 0);
+            const fg = colTintText(tintRatio);
+            const label = val > 0 ? (isAccountsMode ? String(val) : fmtUSD(val)) : "–";
+            const titleVal = val > 0 ? (isAccountsMode ? `${val} account${val !== 1 ? 's' : ''}` : fmtUSD(val)) : 'No data';
+            const style = bg !== "transparent" ? `background:${bg};color:${fg}` : "";
+            html += `<td class="hm-cell" style="${style}" data-sg="${esc(sg)}" title="${esc(l2Names[j])}: ${titleVal}">${label}</td>`;
+          }
+          html += "</tr>";
+        }
+        html += "</tbody></table>";
+        el.innerHTML = html;
+
+        el.querySelectorAll(".hm-cell").forEach(td => {
+          td.addEventListener("click", () => {
+            this.filters.selectedGroup = [td.dataset.sg];
+            this.navigate("overview");
+          });
+        });
+      } else {
+        // Default mode: columns = L1s
+        const mat = {};
+        let maxVal = 0;
+        for (const a of accts) {
+          const sg = a.sg; if (!sg) continue;
+          if (!mat[sg]) mat[sg] = new Array(L1.length).fill(0);
+          for (let i = 0; i < L1.length; i++) {
+            const w = this.effectiveWs(a)[i];
+            if (isAccountsMode) {
+              if (w) { mat[sg][i]++; if (mat[sg][i] > maxVal) maxVal = mat[sg][i]; }
+            } else {
+              const gap = (a.tao[i] && a.tao[i].gap) || 0;
+              if (w && gap > 0) { mat[sg][i] += gap; if (mat[sg][i] > maxVal) maxVal = mat[sg][i]; }
+            }
+          }
+        }
+
+        let html = `<table class="ws-heatmap"><thead><tr><th class="row-header">Sales Group</th>`;
+        L1_SHORT.forEach((s, i) => { html += `<th class="hm-col-header" data-li="${i}" style="cursor:pointer" title="Filter by ${esc(L1[i])}">${s}</th>`; });
+        html += "</tr></thead><tbody>";
+        for (const sg of allGroups) {
+          html += `<tr><td class="row-header">${esc(sg)}</td>`;
+          for (let i = 0; i < L1.length; i++) {
+            const val = (mat[sg] || [])[i] || 0;
+            const ratio = maxVal > 0 ? val / maxVal : 0;
+            const tintRatio = ratio;
+            const bg = colTint(L1_COLORS[i], ratio > 0 ? Math.max(tintRatio, 0.08) : 0);
+            const fg = colTintText(tintRatio);
+            const label = val > 0 ? (isAccountsMode ? String(val) : fmtUSD(val)) : "–";
+            const titleVal = val > 0 ? (isAccountsMode ? `${val} account${val !== 1 ? 's' : ''}` : fmtUSD(val)) : 'No data';
+            const style = bg !== "transparent" ? `background:${bg};color:${fg}` : "";
+            html += `<td class="hm-cell" style="${style}" data-sg="${esc(sg)}" data-li="${i}" title="${esc(L1[i])}: ${titleVal}">${label}</td>`;
+          }
+          html += "</tr>";
+        }
+        html += "</tbody></table>";
+        el.innerHTML = html;
+
+        el.querySelectorAll(".hm-cell").forEach(td => {
+          td.addEventListener("click", () => {
+            this.filters.selectedGroup = [td.dataset.sg];
+            if (td.dataset.li !== undefined) this.filters.selectedL1 = [L1[+td.dataset.li]];
+            this.navigate("overview");
+          });
+        });
+        el.querySelectorAll(".hm-col-header").forEach(th => {
+          th.addEventListener("click", () => {
+            this.filters.selectedL1 = [L1[+th.dataset.li]];
+          });
+        });
+      }
+    },
+
+    downloadAccountDetailsCSV() {
+      const drillIdx = this.treemapDrillL1;
+      const drillL2Idx = this.treemapDrillL2;
+      const isL3Drilled = drillIdx !== null && drillL2Idx !== null;
+      const isDrilled = drillIdx !== null && !isL3Drilled;
+      const csvEsc = v => {
+        const s = v == null ? '' : String(v);
+        return s.includes(',') || s.includes('"') || s.includes('\n') ? '"' + s.replace(/"/g, '""') + '"' : s;
+      };
+
+      let tableAccounts;
+      if (isDrilled || isL3Drilled) {
+        tableAccounts = this.filterAccountsWithoutL1(DATA.accounts.filter(a => !a.is_p));
+      } else {
+        tableAccounts = this.filteredAccounts;
+      }
+
+      const rows = tableAccounts.map(a => {
+        let totalGap = 0, wsGap = 0;
+        if (isDrilled || isL3Drilled) {
+          const l2row = a.tao_l2 && a.tao_l2[drillIdx];
+          if (l2row) l2row.forEach(t => { if (t && t.gap) totalGap += t.gap; });
+          if (this.effectiveWs(a)[drillIdx]) wsGap = totalGap;
+        } else {
+          for (let i = 0; i < L1.length; i++) {
+            totalGap += (a.tao[i] && a.tao[i].gap) || 0;
+            if (this.effectiveWs(a)[i]) wsGap += (a.tao[i] && a.tao[i].gap) || 0;
+          }
+        }
+        return { a, totalGap, wsGap };
+      });
+
+      const { col, dir } = this.overviewSort;
+      const sign = dir === 'asc' ? 1 : -1;
+      rows.sort({ name:(x,y)=>sign*x.a.name.localeCompare(y.a.name), rev:(x,y)=>sign*(x.a.rev||'').localeCompare(y.a.rev||''), gap:(x,y)=>sign*(x.totalGap-y.totalGap), wsgap:(x,y)=>sign*(x.wsGap-y.wsGap) }[col] || ((x,y)=>sign*(x.totalGap-y.totalGap)));
+
+      const colHeaders = isL3Drilled
+        ? ((L3_PER_L2[drillIdx] || [])[drillL2Idx] || [])
+        : isDrilled
+          ? (L2_PER_L1[drillIdx] || [])
+          : L1.flatMap((l, i) => [l, l + ' (Pipeline)']);
+      const header = ['Account','Sales Group','Industry','Total Gap (KUSD)','Whitespace Gap (KUSD)', ...colHeaders].map(csvEsc).join(',');
+
+      const lines = [header];
+      rows.forEach(({ a, totalGap, wsGap }) => {
+        const cells = [a.name, a.sg || '', a.ind || '', totalGap.toFixed(1), wsGap.toFixed(1)];
+        if (isL3Drilled) {
+          const l3Names = (L3_PER_L2[drillIdx] || [])[drillL2Idx] || [];
+          const l3s = a.l3s && a.l3s[drillIdx] && a.l3s[drillIdx][drillL2Idx];
+          l3Names.forEach((_, k) => {
+            const status = l3s ? (l3s[k] || 0) : 0;
+            cells.push(status >= 3 ? 'Covered' : status === 2 ? 'Project' : status === 1 ? 'Shelfware' : '');
+          });
+        } else if (isDrilled) {
+          const l2Names = L2_PER_L1[drillIdx] || [];
+          const l2s = a.l2s && a.l2s[drillIdx];
+          const tao2 = a.tao_l2 && a.tao_l2[drillIdx];
+          const lpr2 = a.l2_lpr_cnt && a.l2_lpr_cnt[drillIdx];
+          l2Names.forEach((_, j) => {
+            const status = l2s ? l2s[j] : 0;
+            if (this.accountTableView === 'tao_gap') {
+              const t = tao2 && tao2[j]; cells.push(t && t.gap > 0 ? t.gap.toFixed(1) : '');
+            } else if (this.accountTableView === 'lpr_count') {
+              cells.push(lpr2 ? (lpr2[j] || 0) : 0);
+            } else {
+              cells.push(status >= 3 ? 'Covered' : status === 2 ? 'Project' : status === 1 ? 'Shelfware' : this.effectiveWsL2(a, drillIdx, j) ? 'Whitespace' : '');
+            }
+          });
+        } else {
+          L1.forEach((_, i) => {
+            const w = this.effectiveWs(a)[i]; const covLP = a.cov[i]; const covAny = a.cov_any[i];
+            if (this.accountTableView === 'tao_gap') {
+              const t = a.tao && a.tao[i]; cells.push(t && t.gap > 0 ? t.gap.toFixed(1) : '');
+            } else if (this.accountTableView === 'lpr_count') {
+              cells.push(a.cov_products && a.cov_products[i] ? a.cov_products[i].length : 0);
+            } else {
+              cells.push(covLP ? 'Covered' : covAny ? 'Shelfware' : w ? 'Whitespace' : '');
+            }
+            // Pipeline column
+            const pipeVal = (a.pipe && a.pipe[i]) || 0;
+            cells.push(w ? (pipeVal > 0 ? pipeVal.toFixed(1) : 'Whitespace') : '');
+          });
+        }
+        lines.push(cells.map(csvEsc).join(','));
+      });
+
+      const blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'account-details.csv'; a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    },
+
+    renderTopAccountsTable() {
+      const el = document.getElementById("top-accounts-table");
+      if (!el) return;
+
+      const drillIdx = this.treemapDrillL1;  // L1 index when zoomed into a SA, else null
+      const drillL2Idx = this.treemapDrillL2;  // L2 index within drillIdx for L3 drill, or null
+      const isDrilled = drillIdx !== null;
+      const isL3Drilled = isDrilled && drillL2Idx !== null;
+
+      // When drilled into an L1, show all non-prospect accounts passing non-L1 filters
+      // (same population as the bar chart) so covered/shelfware accounts appear too.
+      let tableAccounts;
+      if (isDrilled) {
+        const f = this.filters;
+        tableAccounts = this.filterAccountsWithoutL1(DATA.accounts.filter(a => !a.is_p));
+      } else {
+        tableAccounts = this.filteredAccounts;
+      }
+
+      const rows = tableAccounts.map(a => {
+        let totalGap = 0, wsGap = 0;
+        if (isDrilled || isL3Drilled) {
+          const l2row = a.tao_l2 && a.tao_l2[drillIdx];
+          if (l2row) l2row.forEach(t => { if (t && t.gap) totalGap += t.gap; });
+          if (this.effectiveWs(a)[drillIdx]) wsGap = totalGap;
+        } else {
+          for (let i = 0; i < L1.length; i++) {
+            totalGap += (a.tao[i] && a.tao[i].gap) || 0;
+            if (this.effectiveWs(a)[i]) wsGap += (a.tao[i] && a.tao[i].gap) || 0;
+          }
+        }
+        return { a, totalGap, wsGap };
+      });
+
+      const { col, dir } = this.overviewSort;
+      const sign = dir === "asc" ? 1 : -1;
+      const sortFns = {
+        name:  (x,y) => sign * x.a.name.localeCompare(y.a.name),
+        rev:   (x,y) => sign * (x.a.rev || "").localeCompare(y.a.rev || ""),
+        gap:   (x,y) => sign * (x.totalGap - y.totalGap),
+        wsgap: (x,y) => sign * (x.wsGap - y.wsGap),
+      };
+      rows.sort(sortFns[col] || sortFns.gap);
+
+      const total = rows.length;
+      const size = this.overviewPageSize;
+      const page = this.overviewCurrentPage;
+      const pageRows = rows.slice((page - 1) * size, page * size);
+
+      if (!pageRows.length) { el.innerHTML = "<p class='text-muted' style='padding:1rem'>No data</p>"; return; }
+
+      const gapScale = buildGapScale(rows.map(r => r.totalGap));
+      const lprLegendHTML = `<div class="ws-gap-legend"><strong style="font-size:.72rem;color:var(--sapContent_LabelColor,#6a6d70);margin-right:.25rem">LPR count:</strong><span><span class="ws-gap-legend__swatch" style="background:#fff;border:1px solid #ccc"></span><span class="ws-gap-legend__label">0</span></span><span><span class="ws-gap-legend__swatch" style="background:#e8f5e9;border:1px solid rgba(0,0,0,.1)"></span><span class="ws-gap-legend__label">1–5</span></span><span><span class="ws-gap-legend__swatch" style="background:#388e3c;border:1px solid rgba(0,0,0,.1)"></span><span class="ws-gap-legend__label" style="color:#388e3c">6+</span></span></div>`;
+      const NUMERIC_COLS = new Set(["gap","wsgap"]);
+      const makeHeader = (label, key) => {
+        const active = this.overviewSort.col === key;
+        const cls = (active ? (this.overviewSort.dir === "asc" ? "sortable sort-asc" : "sortable sort-desc") : "sortable") + (NUMERIC_COLS.has(key) ? " text-right" : "");
+        const style = NUMERIC_COLS.has(key) ? ' style="text-align:right"' : '';
+        return `<th class="${cls}" data-col="${key}"${style}>${label}<span class="sort-arrow"></span></th>`;
+      };
+
+      let html = `<div class="ws-data-table-wrap"><table class="ws-data-table"><thead><tr>
+        ${makeHeader("Account","name")}
+        ${makeHeader("Total Gap","gap")}
+        ${makeHeader("Whitespace Gap","wsgap")}`;
+
+      if (isL3Drilled) {
+        const l3Names = (L3_PER_L2[drillIdx] || [])[drillL2Idx] || [];
+        l3Names.forEach(n => { html += `<th title="${esc(n)}">${esc(n)}</th>`; });
+      } else if (isDrilled) {
+        const l2Names = L2_PER_L1[drillIdx] || [];
+        l2Names.forEach((n, j) => {
+          html += `<th class="acct-col-header-l2" data-l2="${j}" style="cursor:pointer" title="Drill into ${esc(n)}">${esc(n)} &#8595;</th>`;
+        });
+      } else {
+        L1_SHORT.forEach((s, i) => {
+          html += `<th class="acct-col-header" data-li="${i}" style="cursor:pointer" title="Filter by ${esc(L1[i])}">${esc(s)}</th>`;
+          html += `<th title="${esc(L1[i])} Pipeline" style="font-size:.72rem">${esc(s)} Pipe</th>`;
+        });
+      }
+      html += `</tr></thead><tbody>`;
+
+      const navList = rows.map(x => x.a);
+      pageRows.forEach(({ a, totalGap, wsGap }, ri) => {
+        const navIdx = (page - 1) * size + ri;
+        const sgInd = [a.sg, a.ind].filter(Boolean).join(" | ");
+        html += `<tr class="clickable" data-idx="${navIdx}">
+          <td data-idx="${navIdx}">
+            <strong>${esc(a.name)}</strong>
+            ${sgInd ? `<div style="font-size:.72rem;color:var(--sapContent_LabelColor,#6a6d70);margin-top:.1rem">${esc(sgInd)}</div>` : ""}
+          </td>
+          <td data-idx="${navIdx}" class="${gapScale.cls(totalGap)}" style="text-align:right">${fmtUSD(totalGap)}</td>
+          <td data-idx="${navIdx}" class="${gapScale.cls(wsGap)}" style="text-align:right">${wsGap > 0 ? fmtUSD(wsGap) : "–"}</td>`;
+
+        if (isL3Drilled) {
+          const l3Names = (L3_PER_L2[drillIdx] || [])[drillL2Idx] || [];
+          const l3s = a.l3s && a.l3s[drillIdx] && a.l3s[drillIdx][drillL2Idx];
+          l3Names.forEach((l3, k) => {
+            const status = l3s ? (l3s[k] || 0) : 0;
+            let cell = "";
+            if (this.accountTableView === "tao_gap" || this.accountTableView === "lpr_count") {
+              cell = `<span class="text-muted">–</span>`;
+            } else {
+              if (status >= 3)       cell = `<span class="ws-badge ws-badge--covered" title="${esc(l3)}: Covered">Covered</span>`;
+              else if (status === 2) cell = `<span class="ws-badge ws-badge--project" title="${esc(l3)}: Project">Project</span>`;
+              else if (status === 1) cell = `<span class="ws-badge ws-badge--shelfware" title="${esc(l3)}: Shelfware">Shelfware</span>`;
+              else                   cell = `<span class="text-muted">–</span>`;
+            }
+            html += `<td data-idx="${navIdx}">${cell}</td>`;
+          });
+        } else if (isDrilled) {
+          const l2Names = L2_PER_L1[drillIdx] || [];
+          const l2s = a.l2s && a.l2s[drillIdx];
+          const tao2 = a.tao_l2 && a.tao_l2[drillIdx];
+          const lpr2 = a.l2_lpr_cnt && a.l2_lpr_cnt[drillIdx];
+          l2Names.forEach((l2, j) => {
+            const status = l2s ? l2s[j] : 0;
+            let cell = "", cellCls = "";
+            if (this.accountTableView === "tao_gap") {
+              const t = tao2 && tao2[j];
+              if (t && t.gap > 0) {
+                cellCls = gapScale.cls(t.gap);
+                cell = `<span style="font-size:.8rem">${fmtUSD(t.gap)}</span>`;
+              } else {
+                cell = `<span class="text-muted">–</span>`;
+              }
+            } else if (this.accountTableView === "lpr_count") {
+              const cnt = lpr2 ? (lpr2[j] || 0) : 0;
+              if (cnt === 0)     { cell = `<span class="text-muted">–</span>`; }
+              else if (cnt <= 5) { cellCls = "lpr-t1"; cell = `<span style="font-size:.8rem">${cnt}</span>`; }
+              else               { cellCls = "lpr-t2"; cell = `<span style="font-size:.8rem">${cnt}</span>`; }
+            } else {
+              if (status >= 3) {
+                cell = `<span class="ws-badge ws-badge--covered" title="${esc(l2)}: Covered">Covered</span>`;
+              } else if (status === 2) {
+                cell = `<span class="ws-badge ws-badge--project" title="${esc(l2)}: Project">Project</span>`;
+              } else if (status === 1) {
+                cell = `<span class="ws-badge ws-badge--shelfware" title="${esc(l2)}: Shelfware">Shelfware</span>`;
+              } else {
+                const t = tao2 && tao2[j];
+                if (this.effectiveWsL2(a, drillIdx, j) && t && t.gap > 0) {
+                  cell = `<span class="ws-badge ws-badge--whitespace" title="${esc(l2)}: Whitespace">Whitespace</span>`;
+                } else {
+                  cell = `<span class="text-muted">–</span>`;
+                }
+              }
+            }
+            const tdCls = cellCls ? ` class="${cellCls}"` : "";
+            html += `<td data-idx="${navIdx}"${tdCls}>${cell}</td>`;
+          });
+        } else {
+          L1.forEach((l, i) => {
+            const w = this.effectiveWs(a)[i];
+            const covLP  = a.cov[i];
+            const covAny = a.cov_any[i];
+            let cell = "", cellCls = "";
+            if (this.accountTableView === "tao_gap") {
+              const t = a.tao && a.tao[i];
+              if (t && t.gap > 0) {
+                cellCls = gapScale.cls(t.gap);
+                cell = `<span style="font-size:.8rem">${fmtUSD(t.gap)}</span>`;
+              } else {
+                cell = `<span class="text-muted">–</span>`;
+              }
+            } else if (this.accountTableView === "lpr_count") {
+              const cnt = a.cov_products && a.cov_products[i] ? a.cov_products[i].length : 0;
+              if (cnt === 0)     { cell = `<span class="text-muted">–</span>`; }
+              else if (cnt <= 5) { cellCls = "lpr-t1"; cell = `<span style="font-size:.8rem">${cnt}</span>`; }
+              else               { cellCls = "lpr-t2"; cell = `<span style="font-size:.8rem">${cnt}</span>`; }
+            } else {
+              if (covLP) {
+                cell = `<span class="ws-badge ws-badge--covered" title="${esc(l)}: Covered">Covered</span>`;
+              } else if (covAny) {
+                cell = `<span class="ws-badge ws-badge--shelfware" title="${esc(l)}: Shelfware">Shelfware</span>`;
+              } else if (w) {
+                cell = `<span class="ws-badge ws-badge--whitespace" title="${esc(l)}: Whitespace">Whitespace</span>`;
+              } else {
+                cell = `<span class="text-muted">–</span>`;
+              }
+            }
+            const tdCls = cellCls ? ` class="${cellCls}"` : "";
+            html += `<td data-idx="${navIdx}"${tdCls}>${cell}</td>`;
+            // Pipe column (normal mode only)
+            const pipeVal = (a.pipe && a.pipe[i]) || 0;
+            const pipeCell = pipeVal > 0
+              ? `<span style="font-size:.8rem">${fmtUSD(pipeVal)}</span>`
+              : `<span class="ws-badge ws-badge--whitespace">Whitespace</span>`;
+            html += `<td data-idx="${navIdx}">${pipeCell}</td>`;
+          });
+        }
+        html += `</tr>`;
+      });
+      html += `</tbody></table></div>`;
+      el.innerHTML = (this.accountTableView === "lpr_count" ? lprLegendHTML : gapScale.legendHTML) + html;
+      el.querySelectorAll("th.sortable").forEach(th => {
+        th.addEventListener("click", () => {
+          const c = th.dataset.col;
+          if (this.overviewSort.col === c) this.overviewSort = { col: c, dir: this.overviewSort.dir === "asc" ? "desc" : "asc" };
+          else this.overviewSort = { col: c, dir: "desc" };
+          this.overviewCurrentPage = 1;
+        });
+      });
+      el.querySelectorAll("th.acct-col-header").forEach(th => {
+        th.addEventListener("click", () => {
+          this.filters.selectedL1 = [L1[+th.dataset.li]];
+        });
+      });
+      el.querySelectorAll("th.acct-col-header-l2").forEach(th => {
+        th.addEventListener("click", () => {
+          this.treemapDrillL2 = +th.dataset.l2;
+          this.overviewCurrentPage = 1;
+          nextTick(() => this.renderTopAccountsTable());
+        });
+      });
+      el.querySelectorAll("tr.clickable").forEach(tr => {
+        tr.addEventListener("click", () => {
+          const idx = +tr.dataset.idx;
+          this.openAccount(navList[idx], navList, idx);
+        });
+      });
+      this.renderPagination("overview-pagination", page, Math.ceil(total / size), (p) => {
+        this.overviewCurrentPage = p;
+        nextTick(() => this.renderTopAccountsTable());
+      });
+    },
+
+    renderTreemap() {
+      destroyChart("treemap");
+      const el = document.getElementById("chart-treemap");
+      if (!el) return;
+      const accts = this.filteredAccounts;
+
+      if (this.measureView === 'gap') {
+        if (this.treemapDrillL1 !== null) {
+          // Gap drilled-in: show L2 gap breakdown for the selected L1
+          const i       = this.treemapDrillL1;
+          const l2Names = (DATA.sah_l2_per_l1 || [])[i] || [];
+          const gapByL2 = new Array(l2Names.length).fill(0);
+          for (const a of accts) {
+            if (!this.effectiveWs(a)[i]) continue;
+            const l2row = a.tao_l2 && a.tao_l2[i];
+            if (!l2row) continue;
+            for (let j = 0; j < l2Names.length; j++) {
+              const t = l2row[j];
+              if (t && t.gap > 0) gapByL2[j] += t.gap;
+            }
+          }
+          const entries = l2Names
+            .map((name, j) => ({ g: name, v: gapByL2[j], _j: j }))
+            .filter(e => e.v > 0)
+            .sort((a, b) => b.v - a.v);
+          const hasData = entries.length > 0;
+          el.style.display = hasData ? "" : "none";
+          document.getElementById("chart-treemap-empty").style.display = hasData ? "none" : "";
+          if (!hasData) return;
+          const baseColor = L1_COLORS[i];
+          charts["treemap"] = new Chart(el, {
+            type: "treemap",
+            data: {
+              datasets: [{
+                label: "Whitespace Gap",
+                tree: entries,
+                key: "v",
+                groups: ["g"],
+                borderWidth: 1,
+                borderColor: "#fff",
+                backgroundColor(ctx) {
+                  if (ctx.type !== "data") return "transparent";
+                  const rank = entries.findIndex(e => e.g === ctx.raw.g);
+                  const alpha = Math.round(255 * (0.95 - rank * (0.55 / Math.max(entries.length - 1, 1)))).toString(16).padStart(2, "0");
+                  return baseColor + alpha;
+                },
+                labels: {
+                  display(ctx) { return ctx.raw && (ctx.raw.w || 0) > 40 && (ctx.raw.h || 0) > 22; },
+                  formatter(ctx) {
+                    if (!ctx.raw) return "";
+                    const name = ctx.raw.g;
+                    const maxChars = Math.max(8, Math.floor((ctx.raw.w || 80) / 6));
+                    const words = name.split(" ");
+                    const lines = [];
+                    let cur = "";
+                    for (const word of words) {
+                      if (!cur) { cur = word; }
+                      else if ((cur + " " + word).length <= maxChars) { cur += " " + word; }
+                      else { lines.push(cur); cur = word; }
+                    }
+                    if (cur) lines.push(cur);
+                    lines.push(fmtUSD(ctx.raw.v));
+                    return lines;
+                  },
+                  color: "#fff", font: { size: 10, weight: "bold" },
+                },
+              }],
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: { legend: { display: false }, tooltip: {
+                callbacks: { title: (items) => items[0]?.raw?.g || "", label: (item) => "Gap: " + fmtUSD(item.raw?.v) }
+              }},
+            },
+          });
+          return;
+        }
+
+        // Gap top-level: show L1 breakdown
+        const gapByL1 = new Array(L1.length).fill(0);
+        for (const a of accts) {
+          for (let i = 0; i < L1.length; i++) {
+            const w = this.effectiveWs(a)[i];
+            const gap = (a.tao[i] && a.tao[i].gap) || 0;
+            if (w && gap > 0) gapByL1[i] += gap;
+          }
+        }
+        const entries = L1.map((l, i) => ({ g: L1_SHORT[i], v: gapByL1[i], _i: i }))
+          .filter(e => e.v > 0)
+          .sort((a, b) => b.v - a.v);
+
+        if (!entries.length) {
+          el.style.display = "none";
+          document.getElementById("chart-treemap-empty").style.display = "";
+          return;
+        }
+        el.style.display = "";
+        document.getElementById("chart-treemap-empty").style.display = "none";
+
+        charts["treemap"] = new Chart(el, {
+          type: "treemap",
+          data: {
+            datasets: [{
+              label: "Whitespace Gap",
+              tree: entries,
+              key: "v",
+              groups: ["g"],
+              borderWidth: 1,
+              borderColor: "#fff",
+              backgroundColor(ctx) {
+                if (ctx.type !== "data") return "transparent";
+                const entry = entries.find(e => e.g === ctx.raw.g);
+                return (entry ? L1_COLORS[entry._i] : L1_COLORS[0]) + "cc";
+              },
+              labels: { display(ctx) {
+                if (!ctx.raw) return false;
+                return (ctx.raw.w || 0) > 55 && (ctx.raw.h || 0) > 28;
+              }, formatter(ctx) {
+                if (!ctx.raw) return "";
+                return [ctx.raw.g, fmtUSD(ctx.raw.v)];
+              }, color: "#fff", font: { size: 10, weight: "bold" } },
+            }],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false }, tooltip: {
+              callbacks: { title: (items) => items[0]?.raw?.g || "", label: (item) => "Gap: " + fmtUSD(item.raw?.v) }
+            }},
+            onClick: (evt, elements, chart) => {
+              if (!elements.length) return;
+              const raw = elements[0].element.$context?.raw;
+              if (!raw) return;
+              const idx = L1_SHORT.indexOf(raw.g);
+              if (idx >= 0) {
+                this.filters.selectedL1 = [L1[idx]];
+                this.treemapDrillL1 = idx;
+                nextTick(() => this.renderTreemap());
+              }
+            },
+          },
+        });
+
+      } else {
+        // Accounts view
+        if (this.treemapDrillL1 !== null) {
+          // Accounts drilled-in: count non-prospect accounts with no L2 coverage per L2.
+          // Cannot filter by effectiveWs(a)[i] here — all L1-whitespace accounts trivially
+          // have l2s[i][j]===0 for every j, which would produce identical counts across all L2s.
+          // Instead, count all non-prospect accounts (bypassing the L1 whitespace filter)
+          // that have zero coverage at each specific L2.
+          const i       = this.treemapDrillL1;
+          const l2Names = (DATA.sah_l2_per_l1 || [])[i] || [];
+          const allFiltered = this.filterAccountsWithoutL1(DATA.accounts.filter(a => !a.is_p));
+          const l2Counts = l2Names.map((_, j) =>
+            allFiltered.filter(a => { const l2row = a.l2s && a.l2s[i]; return l2row && l2row[j] === 0; }).length
+          );
+          const entries = l2Names
+            .map((name, j) => ({ g: name, v: l2Counts[j], _j: j }))
+            .filter(e => e.v > 0)
+            .sort((a, b) => b.v - a.v);
+          const hasData = entries.length > 0;
+          el.style.display = hasData ? "" : "none";
+          document.getElementById("chart-treemap-empty").style.display = hasData ? "none" : "";
+          if (!hasData) return;
+          const baseColor = L1_COLORS[i];
+          charts["treemap"] = new Chart(el, {
+            type: "treemap",
+            data: {
+              datasets: [{
+                label: "Whitespace Accounts",
+                tree: entries,
+                key: "v",
+                groups: ["g"],
+                borderWidth: 1,
+                borderColor: "#fff",
+                backgroundColor(ctx) {
+                  if (ctx.type !== "data") return "transparent";
+                  const rank = entries.findIndex(e => e.g === ctx.raw.g);
+                  const alpha = Math.round(255 * (0.95 - rank * (0.55 / Math.max(entries.length - 1, 1)))).toString(16).padStart(2, "0");
+                  return baseColor + alpha;
+                },
+                labels: {
+                  display(ctx) { return ctx.raw && (ctx.raw.w || 0) > 40 && (ctx.raw.h || 0) > 22; },
+                  formatter(ctx) {
+                    if (!ctx.raw) return "";
+                    const name = ctx.raw.g;
+                    const maxChars = Math.max(8, Math.floor((ctx.raw.w || 80) / 6));
+                    const words = name.split(" ");
+                    const lines = [];
+                    let cur = "";
+                    for (const word of words) {
+                      if (!cur) { cur = word; }
+                      else if ((cur + " " + word).length <= maxChars) { cur += " " + word; }
+                      else { lines.push(cur); cur = word; }
+                    }
+                    if (cur) lines.push(cur);
+                    lines.push(ctx.raw.v + " accts");
+                    return lines;
+                  },
+                  color: "#fff", font: { size: 10, weight: "bold" },
+                },
+              }],
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: { legend: { display: false }, tooltip: {
+                callbacks: { title: (items) => items[0]?.raw?.g || "", label: (item) => "Accounts: " + item.raw?.v }
+              }},
+            },
+          });
+          return;
+        }
+
+        // Accounts top-level: count whitespace accounts per L1
+        const counts = new Array(L1.length).fill(0);
+        for (const a of accts) {
+          const ws = this.effectiveWs(a);
+          for (let i = 0; i < L1.length; i++) {
+            if (ws[i]) counts[i]++;
+          }
+        }
+        const entries = L1.map((_, i) => ({ g: L1_SHORT[i], v: counts[i], _i: i }))
+          .filter(e => e.v > 0)
+          .sort((a, b) => b.v - a.v);
+
+        if (!entries.length) {
+          el.style.display = "none";
+          document.getElementById("chart-treemap-empty").style.display = "";
+          return;
+        }
+        el.style.display = "";
+        document.getElementById("chart-treemap-empty").style.display = "none";
+
+        charts["treemap"] = new Chart(el, {
+          type: "treemap",
+          data: {
+            datasets: [{
+              label: "Whitespace Accounts",
+              tree: entries,
+              key: "v",
+              groups: ["g"],
+              borderWidth: 1,
+              borderColor: "#fff",
+              backgroundColor(ctx) {
+                if (ctx.type !== "data") return "transparent";
+                const entry = entries.find(e => e.g === ctx.raw.g);
+                return (entry ? L1_COLORS[entry._i] : L1_COLORS[0]) + "cc";
+              },
+              labels: { display(ctx) {
+                if (!ctx.raw) return false;
+                return (ctx.raw.w || 0) > 55 && (ctx.raw.h || 0) > 28;
+              }, formatter(ctx) {
+                if (!ctx.raw) return "";
+                return [ctx.raw.g, ctx.raw.v + " accts"];
+              }, color: "#fff", font: { size: 10, weight: "bold" } },
+            }],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false }, tooltip: {
+              callbacks: { title: (items) => items[0]?.raw?.g || "", label: (item) => "Accounts: " + item.raw?.v }
+            }},
+            onClick: (evt, elements, chart) => {
+              if (!elements.length) return;
+              const raw = elements[0].element.$context?.raw;
+              if (!raw) return;
+              const idx = L1_SHORT.indexOf(raw.g);
+              if (idx >= 0) {
+                this.treemapDrillL1 = idx;
+                this.filters.selectedL1 = [L1[idx]];
+                nextTick(() => this.renderTreemap());
+              }
+            },
+          },
+        });
+      }
+    },
+
+    computeBubbleBuckets(maxVal, fmt) {
+      // Nice round number ≥ v
+      function niceCeil(v) {
+        if (v <= 0) return 1;
+        const p = Math.pow(10, Math.floor(Math.log10(v)));
+        const n = v / p;
+        return (n <= 1 ? 1 : n <= 2 ? 2 : n <= 5 ? 5 : 10) * p;
+      }
+      const t1 = niceCeil(maxVal / 3);
+      const t2raw = niceCeil(maxVal * 2 / 3);
+      const t2 = t2raw > t1 ? t2raw : t1 * 2;
+      return [
+        { label: "< " + fmt(t1),                    threshold: t1,       r: 7  },
+        { label: fmt(t1) + " – " + fmt(t2),          threshold: t2,       r: 14 },
+        { label: "> " + fmt(t2),                     threshold: Infinity, r: 24 },
+      ];
+    },
+    renderBubble() {
+      destroyChart("bubble");
+      const el = document.getElementById("chart-bubble");
+      const emptyEl = document.getElementById("chart-bubble-empty");
+      if (!el) return;
+      const accts = this.filteredAccounts;
+
+      const isGapMode = this.measureView === 'gap';
+
+      const computeBuckets = (maxVal, fmt) => this.computeBubbleBuckets(maxVal, fmt);
+      const bucketR = (gap, buckets) => {
+        for (const b of buckets) if (gap < b.threshold) return b.r;
+        return buckets[buckets.length - 1].r;
+      };
+      const renderBubbleLegend = (buckets, legendLabel) => {
+        const leg = document.getElementById("chart-bubble-legend");
+        if (!leg) return;
+        leg.innerHTML = "<span style=\"font-weight:600;margin-right:.5rem\">" + esc(legendLabel) + ":</span>" + buckets.map(b =>
+          `<span style="display:inline-flex;align-items:center;gap:.3rem;margin-right:.6rem">` +
+          `<svg width="${b.r*2}" height="${b.r*2}" style="flex-shrink:0">` +
+          `<circle cx="${b.r}" cy="${b.r}" r="${b.r - 1}" fill="rgba(100,130,180,0.35)" stroke="rgba(100,130,180,0.8)" stroke-width="1.5"/></svg>` +
+          `<span>${esc(b.label)}</span></span>`
+        ).join("");
+        leg.style.display = "flex";
+      };
+
+      // Inline plugin: draw a short label above each bubble
+      const bubbleLabelPlugin = {
+        id: "bubbleLabels",
+        afterDraw(chart) {
+          const ctx = chart.ctx;
+          chart.data.datasets.forEach((ds, di) => {
+            const meta = chart.getDatasetMeta(di);
+            if (meta.hidden) return;
+            meta.data.forEach(pt => {
+              const raw = pt.$context.raw;
+              const r = raw.r || 6;
+              const label = ds.label;
+              // truncate long names
+              const maxChars = Math.max(6, Math.floor(r * 1.6));
+              const short = label.length > maxChars ? label.slice(0, maxChars - 1) + "…" : label;
+              ctx.save();
+              ctx.font = "bold 9px sans-serif";
+              ctx.textAlign = "center";
+              ctx.textBaseline = "bottom";
+              ctx.fillStyle = "#333";
+              ctx.fillText(short, pt.x, pt.y - r - 2);
+              ctx.restore();
+            });
+          });
+        }
+      };
+
+      const sharedOptions = (onClickFn) => ({
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label(ctx) {
+                const d = ctx.raw;
+                if (isGapMode) {
+                  return [
+                    ctx.dataset.label,
+                    "% of Total Whitespace Gap: " + d.x.toFixed(1) + "%",
+                    "High/Very High Priority: " + d._hi + " (" + d.y + "%)",
+                    "Whitespace Accounts: " + d._cnt,
+                  ];
+                }
+                return [
+                  ctx.dataset.label,
+                  "Whitespace Accounts: " + d._cnt + " (" + d.x + "%)",
+                  "High/Very High Priority: " + d._hi + " (" + d.y + "%)",
+                  "Gap: " + fmtUSD(d._gap),
+                ];
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            title: { display: true, text: isGapMode ? "% of Total Whitespace Gap" : "% Whitespace Accounts", font: { size: 11 } },
+            min: 0,
+            max: 100,
+            ticks: { callback: v => v + "%", stepSize: 25 }
+          },
+          y: {
+            title: { display: true, text: "% High/Very High Priority Accounts", font: { size: 11 } },
+            min: 0,
+            max: 100,
+            ticks: { callback: v => v + "%", stepSize: 25 }
+          }
+        },
+        onClick: onClickFn,
+      });
+
+      if (this.bubbleDrillL1 !== null) {
+        // ── Drilled-in: show L2 breakdown for the selected L1 ──────────────
+        const i       = this.bubbleDrillL1;
+        const l2Names = (DATA.sah_l2_per_l1 || [])[i] || [];
+        const baseColor = L1_COLORS[i];
+
+        // Mirror treemap accounts drill: count all non-prospect filtered accounts
+        // with zero L2 coverage — do NOT gate on L1 whitespace, because all such
+        // accounts trivially have l2s[i][j]===0 for every j.
+        const allFiltered = this.filterAccountsWithoutL1(DATA.accounts.filter(a => !a.is_p));
+
+        const wsCount   = new Array(l2Names.length).fill(0);
+        const totalGap  = new Array(l2Names.length).fill(0);
+        const totalWalletL2 = new Array(l2Names.length).fill(0);
+        const highPriCt = new Array(l2Names.length).fill(0);
+
+        for (const a of allFiltered) {
+          const l2row = a.l2s && a.l2s[i];
+          if (!l2row) continue;
+          const tl1 = a.tao[i];
+          const isHighPri = tl1 && tl1.pri && (parseInt(tl1.pri, 10) <= 2);
+          const taoL2row = a.tao_l2 && a.tao_l2[i];
+          for (let j = 0; j < l2Names.length; j++) {
+            if (!this.effectiveWsL2(a, i, j)) continue;
+            wsCount[j]++;
+            if (isHighPri) highPriCt[j]++;
+            const t2 = taoL2row && taoL2row[j];
+            if (t2) {
+              if (t2.gap > 0) totalGap[j] += t2.gap;
+              if (t2.wallet > 0) totalWalletL2[j] += t2.wallet;
+            }
+          }
+        }
+
+        let BUCKETS;
+        const totalAllGapL2 = totalGap.reduce((s, v) => s + v, 0);
+        if (isGapMode) {
+          const maxCount = Math.max(...wsCount.filter((_, j) => wsCount[j] > 0), 1);
+          BUCKETS = computeBuckets(maxCount, v => v + " accts");
+        } else {
+          const maxGapL2 = Math.max(...totalGap.filter((_, j) => wsCount[j] > 0), 1);
+          BUCKETS = computeBuckets(maxGapL2, fmtUSD);
+        }
+        renderBubbleLegend(BUCKETS, isGapMode ? "Whitespace Accounts" : "Gap to Wallet");
+
+        const totalL2Accounts = allFiltered.length;
+        const datasets = [];
+        for (let j = 0; j < l2Names.length; j++) {
+          if (wsCount[j] === 0) continue;
+          const gap = totalGap[j];
+          const pctHighPri = Math.round(highPriCt[j] / wsCount[j] * 100);
+          let pctX, r;
+          if (isGapMode) {
+            pctX = totalAllGapL2 > 0 ? +(gap / totalAllGapL2 * 100).toFixed(1) : 0;
+            r = bucketR(wsCount[j], BUCKETS);
+          } else {
+            pctX = totalL2Accounts > 0 ? Math.round(wsCount[j] / totalL2Accounts * 100) : 0;
+            r = bucketR(gap, BUCKETS);
+          }
+          const alpha = Math.round(255 * (0.95 - j * (0.55 / Math.max(l2Names.length - 1, 1)))).toString(16).padStart(2, "0");
+          datasets.push({
+            label: l2Names[j],
+            data: [{ x: pctX, y: pctHighPri, r, _gap: gap, _hi: highPriCt[j], _cnt: wsCount[j] }],
+            backgroundColor: baseColor + alpha,
+            borderColor: baseColor,
+            borderWidth: 1.5,
+          });
+        }
+
+        const hasData = datasets.length > 0;
+        el.style.display = hasData ? "" : "none";
+        if (emptyEl) emptyEl.style.display = hasData ? "none" : "";
+        if (!hasData) return;
+
+        charts["bubble"] = new Chart(el, {
+          type: "bubble",
+          data: { datasets },
+          plugins: [bubbleLabelPlugin],
+          options: sharedOptions(null),
+        });
+        return;
+      }
+
+      // ── Top-level: one bubble per L1 ──────────────────────────────────────
+      const wsCount   = new Array(L1.length).fill(0);
+      const totalGap  = new Array(L1.length).fill(0);
+      const totalWallet = new Array(L1.length).fill(0);
+      const highPriCt = new Array(L1.length).fill(0);
+      let totalNonProspects = 0;
+
+      for (const a of accts) {
+        if (!a.is_p) totalNonProspects++;
+        const ws = this.effectiveWs(a);
+        for (let i = 0; i < L1.length; i++) {
+          if (!ws[i]) continue;
+          wsCount[i]++;
+          const t = a.tao[i];
+          if (t) {
+            if (t.gap > 0) totalGap[i] += t.gap;
+            if (t.wallet > 0) totalWallet[i] += t.wallet;
+            const n = t.pri ? parseInt(t.pri, 10) : 0;
+            if (n === 1 || n === 2) highPriCt[i]++;
+          }
+        }
+      }
+
+      let BUCKETS;
+      const totalAllGap = totalGap.reduce((s, v) => s + v, 0);
+      if (isGapMode) {
+        const maxCount = Math.max(...wsCount.filter((_, i) => wsCount[i] > 0), 1);
+        BUCKETS = computeBuckets(maxCount, v => v + " accts");
+      } else {
+        const maxGapL1 = Math.max(...totalGap.filter((_, i) => wsCount[i] > 0), 1);
+        BUCKETS = computeBuckets(maxGapL1, fmtUSD);
+      }
+      renderBubbleLegend(BUCKETS, isGapMode ? "Whitespace Accounts" : "Gap to Wallet");
+
+      const datasets = [];
+      for (let i = 0; i < L1.length; i++) {
+        if (wsCount[i] === 0) continue;
+        const gap = totalGap[i];
+        const pctHighPri = Math.round(highPriCt[i] / wsCount[i] * 100);
+        let pctX, r;
+        if (isGapMode) {
+          pctX = totalAllGap > 0 ? +(gap / totalAllGap * 100).toFixed(1) : 0;
+          r = bucketR(wsCount[i], BUCKETS);
+        } else {
+          pctX = totalNonProspects > 0 ? Math.round(wsCount[i] / totalNonProspects * 100) : 0;
+          r = bucketR(gap, BUCKETS);
+        }
+        datasets.push({
+          label: L1_SHORT[i],
+          data: [{ x: pctX, y: pctHighPri, r, _gap: gap, _hi: highPriCt[i], _cnt: wsCount[i], _i: i }],
+          backgroundColor: L1_COLORS[i] + "CC",
+          borderColor: L1_COLORS[i],
+          borderWidth: 1.5,
+        });
+      }
+
+      const hasData = datasets.length > 0;
+      el.style.display = hasData ? "" : "none";
+      if (emptyEl) emptyEl.style.display = hasData ? "none" : "";
+      if (!hasData) return;
+
+      charts["bubble"] = new Chart(el, {
+        type: "bubble",
+        data: { datasets },
+        plugins: [bubbleLabelPlugin],
+        options: sharedOptions((evt, elements) => {
+          if (!elements.length) return;
+          const d = elements[0].element.$context?.raw;
+          if (!d) return;
+          const idx = d._i !== undefined ? d._i : -1;
+          if (idx >= 0) {
+            this.filters.selectedL1 = [L1[idx]];
+          }
+        }),
+      });
+    },
+
+
+    // ── PORTFOLIO ───────────────────────────────────────────────────────────
+    renderPortfolio() {
+      if (this.portfolioSubView === "list") {
+        this.renderPortfolioList();
+      } else {
+        this.renderClusterDetail();
+      }
+    },
+
+    renderPortfolioList() {
+      const el = document.getElementById("portfolio-clusters-table");
+      if (!el) return;
+
+      if (!DATA.clusters || !DATA.clusters.length) {
+        el.innerHTML = "<p class='text-muted' style='padding:1rem'>No cluster data available. Run analyze.py and rebuild with --clusters.</p>";
+        return;
+      }
+
+      const allAcctById = {};
+      for (const a of this.filteredAccounts) allAcctById[a.id] = a;
+
+      // Re-compute per-cluster stats using all accounts (filters do not affect clusters)
+      const rows = DATA.clusters.map(c => {
+        const accts = c.account_ids.map(id => allAcctById[id]).filter(Boolean);
+        if (!accts.length) return null;
+
+        let gap = 0;
+        for (const a of accts) {
+          for (let i = 0; i < L1.length; i++) {
+            const w = this.effectiveWs(a)[i];
+            const t = a.tao[i];
+            if (w && t && t.gap) gap += t.gap;
+          }
+        }
+        return { c, visibleCount: accts.length, gap };
+      }).filter(Boolean);
+
+      // Apply cluster solution area filters
+      const cf = this.clusterFilters;
+      let filteredRows = rows;
+      if (cf.selectedWsL1Top.length) {
+        const l2ToL1 = {};
+        L2_PER_L1.forEach((l2s, i) => l2s.forEach(l2 => { l2ToL1[l2] = L1[i]; }));
+        filteredRows = filteredRows.filter(({ c }) => {
+          const l1s = new Set((c.ws_l2s || []).map(l2 => l2ToL1[l2]).filter(Boolean));
+          return cf.selectedWsL1Top.some(l => l1s.has(l));
+        });
+      }
+      if (cf.selectedCovL1.length || cf.selectedWsL1.length) {
+        filteredRows = filteredRows.filter(({ c }) => {
+          if (cf.selectedCovL1.length) {
+            const covL2s = new Set(c.covered_l2s || []);
+            const passes = this.clusterCovL1Mode === 'all'
+              ? cf.selectedCovL1.every(l => covL2s.has(l))
+              : cf.selectedCovL1.some(l => covL2s.has(l));
+            if (!passes) return false;
+          }
+          if (cf.selectedWsL1.length) {
+            const wsL2s = new Set(c.ws_l2s || []);
+            const passes = this.clusterWsL1Mode === 'all'
+              ? cf.selectedWsL1.every(l => wsL2s.has(l))
+              : cf.selectedWsL1.some(l => wsL2s.has(l));
+            if (!passes) return false;
+          }
+          return true;
+        });
+      }
+
+      // Always sort by gap descending
+      filteredRows.sort((x, y) => y.gap - x.gap);
+
+      if (!filteredRows.length) {
+        el.innerHTML = "<p class='text-muted' style='padding:1rem'>No clusters match the current filters.</p>";
+        document.getElementById("portfolio-pagination").innerHTML = "";
+        return;
+      }
+
+      const page = this.portfolioCurrentPage;
+      const size = this.portfolioPageSize;
+      const total = filteredRows.length;
+      const pageRows = filteredRows.slice((page - 1) * size, page * size);
+
+      let html = `<div class="ws-cluster-grid">`;
+      pageRows.forEach(({ c, visibleCount, gap }) => {
+        const footprintBadges = (c.covered_l2s || []).length
+          ? (c.covered_l2s).map(l => `<span class="ws-badge ws-badge--covered-l1" style="font-size:.67rem;padding:.06rem .32rem">${esc(l)}</span>`).join("")
+          : `<span class="text-muted" style="font-size:.72rem">(none)</span>`;
+
+        const targetL2 = (c.ws_l2s || [])[0] || "";
+
+        // Determine TAO priority for the target L2's parent L1
+        const l2ToL1Idx = {};
+        L2_PER_L1.forEach((l2s, i) => l2s.forEach(l2 => { l2ToL1Idx[l2] = i; }));
+        const l1Idx = l2ToL1Idx[targetL2];
+        let highestPri = null;
+        for (const id of c.account_ids) {
+          const a = allAcctById[id];
+          if (!a) continue;
+          const t = (l1Idx !== undefined) && a.tao && a.tao[l1Idx];
+          if (t && t.pri) {
+            if (!highestPri || parseInt(t.pri) < parseInt(highestPri)) highestPri = t.pri;
+          }
+        }
+        const priLabel = highestPri ? highestPri.replace(/^\d+ /, "") : null;
+        const priColor = !highestPri ? "var(--sapContent_LabelColor,#6a6d70)"
+          : highestPri.startsWith("1") ? "#c0392b"
+          : highestPri.startsWith("2") ? "#d35400"
+          : "var(--sapTextColor,#32363a)";
+
+        html += `<div class="ws-cluster-tile" data-cid="${esc(c.id)}">
+          <div style="font-size:.92rem;font-weight:700;color:var(--sapTextColor,#32363a);line-height:1.25;margin-bottom:.1rem">&#8594; ${esc(targetL2)}</div>
+          <div class="ws-cluster-tile__kpi-row">
+            <div class="ws-cluster-tile__kpi">
+              <span class="ws-cluster-tile__kpi-val">${visibleCount}</span>
+              <span class="ws-cluster-tile__kpi-lbl">Accounts</span>
+            </div>
+            <div class="ws-cluster-tile__kpi">
+              <span class="ws-cluster-tile__kpi-val">${fmtUSD(gap)}</span>
+              <span class="ws-cluster-tile__kpi-lbl">Gap</span>
+            </div>
+            <div class="ws-cluster-tile__kpi">
+              <span class="ws-cluster-tile__kpi-val" style="color:${priColor}">${priLabel ? esc(priLabel) : "—"}</span>
+              <span class="ws-cluster-tile__kpi-lbl">Priority</span>
+            </div>
+          </div>
+          <div>
+            <div class="ws-cluster-tile__section-label">Current Footprint</div>
+            <div class="ws-cluster-tile__badges">${footprintBadges}</div>
+          </div>
+        </div>`;
+      });
+      html += `</div>`;
+      el.innerHTML = html;
+
+      el.querySelectorAll(".ws-cluster-tile").forEach(tile => {
+        tile.addEventListener("click", () => {
+          const cluster = DATA.clusters.find(c => c.id === tile.dataset.cid);
+          if (!cluster) return;
+          this.selectedCluster = cluster;
+          this.portfolioSubView = "detail";
+          this.portfolioCurrentPage = 1;
+          nextTick(() => this.renderClusterDetail());
+        });
+      });
+
+      this.renderPagination("portfolio-pagination", page, Math.ceil(total / size), p => {
+        this.portfolioCurrentPage = p;
+        nextTick(() => this.renderPortfolioList());
+      });
+    },
+
+    renderClusterDetail() {
+      if (!this.selectedCluster) return;
+      const accts = this.portfolioClusterAccounts;
+
+      // Account count subtext
+      const cntEl = document.getElementById("portfolio-detail-count");
+      if (cntEl) cntEl.textContent = `${accts.length} accounts (filtered)`;
+
+      const tableEl = document.getElementById("portfolio-detail-accounts-table");
+      if (!tableEl) return;
+
+      if (!accts.length) {
+        tableEl.innerHTML = "<p class='text-muted' style='padding:1rem'>No accounts match current filters in this cluster.</p>";
+        const pagEl = document.getElementById("portfolio-detail-pagination");
+        if (pagEl) pagEl.innerHTML = "";
+        return;
+      }
+
+      const rows = accts.map(a => {
+        let totalGap = 0, totalPipe = 0;
+        for (let i = 0; i < L1.length; i++) {
+          totalGap += (a.tao[i] && a.tao[i].gap) || 0;
+          totalPipe += a.pipe[i] || 0;
+        }
+        return { a, totalGap, totalPipe };
+      });
+
+      const { col: pdCol, dir: pdDir } = this.sortPortfolioDetail;
+      const pdSign = pdDir === "asc" ? 1 : -1;
+      const pdSortFns = {
+        name: (x,y) => pdSign * x.a.name.localeCompare(y.a.name),
+        rev:  (x,y) => pdSign * (x.a.rev || "").localeCompare(y.a.rev || ""),
+        gap:  (x,y) => pdSign * (x.totalGap - y.totalGap),
+        pipe: (x,y) => pdSign * (x.totalPipe - y.totalPipe),
+      };
+      rows.sort(pdSortFns[pdCol] || pdSortFns.gap);
+
+      const navList = rows.map(r => r.a);
+      const page = this.portfolioCurrentPage;
+      const size = this.portfolioPageSize;
+      const total = rows.length;
+      const pageRows = rows.slice((page - 1) * size, page * size);
+
+      const gapScale = buildGapScale(rows.map(r => r.totalGap));
+      const NUMERIC_COLS = new Set(["gap","pipe"]);
+      const mkPdHdr = (label, key) => {
+        const active = this.sortPortfolioDetail.col === key;
+        const cls = (active ? (this.sortPortfolioDetail.dir === "asc" ? "sortable sort-asc" : "sortable sort-desc") : "sortable") + (NUMERIC_COLS.has(key) ? " text-right" : "");
+        const style = NUMERIC_COLS.has(key) ? ' style="text-align:right"' : '';
+        return `<th class="${cls}" data-col="${key}"${style}>${label}<span class="sort-arrow"></span></th>`;
+      };
+
+      let html = `<div class="ws-data-table-wrap"><table class="ws-data-table"><thead><tr>
+        ${mkPdHdr("Account","name")}
+        ${mkPdHdr("Gap","gap")}
+        ${mkPdHdr("Pipeline","pipe")}`;
+      L1_SHORT.forEach(s => { html += `<th>${esc(s)}</th>`; });
+      html += `</tr></thead><tbody>`;
+
+      pageRows.forEach(({ a, totalGap, totalPipe }, ri) => {
+        const navIdx = (page - 1) * size + ri;
+        const sgInd = [a.sg, a.ind].filter(Boolean).join(" | ");
+        html += `<tr class="clickable" data-idx="${navIdx}">
+          <td data-idx="${navIdx}">
+            <strong>${esc(a.name)}</strong>
+            ${sgInd ? `<div style="font-size:.72rem;color:var(--sapContent_LabelColor,#6a6d70);margin-top:.1rem">${esc(sgInd)}</div>` : ""}
+          </td>
+          <td data-idx="${navIdx}" class="${gapScale.cls(totalGap)}" style="text-align:right">${fmtUSD(totalGap)}</td>
+          <td data-idx="${navIdx}" style="text-align:right">${totalPipe > 0 ? fmtUSD(totalPipe) : "–"}</td>`;
+        L1.forEach((l, i) => {
+          const w      = this.effectiveWs(a)[i];
+          const covLP  = a.cov[i];
+          const covAny = a.cov_any[i];
+          let cell = "";
+          if (covLP)       cell = `<span class="ws-badge ws-badge--covered"   title="${esc(l)}: Covered">Covered</span>`;
+          else if (covAny) cell = `<span class="ws-badge ws-badge--shelfware" title="${esc(l)}: Shelfware">Shelfware</span>`;
+          else if (w)      cell = `<span class="ws-badge ws-badge--whitespace" title="${esc(l)}: Whitespace">Whitespace</span>`;
+          else             cell = `<span class="text-muted">–</span>`;
+          html += `<td data-idx="${navIdx}">${cell}</td>`;
+        });
+        html += `</tr>`;
+      });
+      html += `</tbody></table></div>`;
+      tableEl.innerHTML = gapScale.legendHTML + html;
+
+      tableEl.querySelectorAll("th.sortable").forEach(th => {
+        th.addEventListener("click", () => {
+          const key = th.dataset.col;
+          if (this.sortPortfolioDetail.col === key)
+            this.sortPortfolioDetail = { col: key, dir: this.sortPortfolioDetail.dir === "asc" ? "desc" : "asc" };
+          else
+            this.sortPortfolioDetail = { col: key, dir: "desc" };
+          nextTick(() => this.renderClusterDetail());
+        });
+      });
+
+      tableEl.querySelectorAll("tr.clickable").forEach(tr => {
+        tr.addEventListener("click", () => {
+          const idx = +tr.dataset.idx;
+          this.prevView = "portfolio";
+          this.openAccount(navList[idx], navList, idx);
+        });
+      });
+
+      this.renderPagination("portfolio-detail-pagination", page, Math.ceil(total / size), p => {
+        this.portfolioCurrentPage = p;
+        nextTick(() => this.renderClusterDetail());
+      });
+
+    },
+
+    // ── ACCOUNT DETAIL ─────────────────────────────────────────────────────
+    renderCoverageGrid() {
+      const a = this.selectedAccount;
+      const el = document.getElementById("acct-coverage-grid");
+      if (!el || !a) return;
+
+      let html = "";
+      L1.forEach((l1, i) => {
+        const covLP  = a.cov[i];
+        const covAny = a.cov_any[i];
+        const w      = this.effectiveWs(a)[i];
+        const t      = a.tao ? a.tao[i] : null;
+        const tPri   = t && t.pri ? t.pri : null;
+
+        // Gap text
+        const gapText = t && t.gap > 0 ? fmtUSD(t.gap) : "–";
+
+        // Strategy text
+        const stratText = t && t.strat ? esc(t.strat) : "–";
+
+        // Priority text — strip leading rank number for display
+        const priText = tPri ? esc(tPri.replace(/^\d+\s*/, "")) : "–";
+
+        const header = `<div class="ws-cov-cell__header">
+          <span class="ws-cov-cell__l1">${esc(l1)}</span>
+          <div class="ws-cov-cell__meta">Gap: ${gapText} | Priority: ${priText} | Strategy: ${stratText}</div>
+        </div>`;
+
+        // L2 pills
+        const l2Names  = L2_PER_L1[i] || [];
+        const l2States = a.l2s && a.l2s[i] ? a.l2s[i] : [];
+        const tpStates = (!a.is_tp && a.tp_l2s && a.tp_l2s[i]) ? a.tp_l2s[i] : [];
+        let l2Html = "";
+        if (l2Names.length) {
+          const pills = l2Names.map((l2, j) => {
+            const st   = l2States[j] ?? 0;
+            const tpSt = tpStates[j] ?? 0;
+            let cls;
+            if      (st === 3)   cls = "ws-badge--l2-covered";
+            else if (st === 2)   cls = "ws-badge--l2-project";
+            else if (st === 1)   cls = "ws-badge--l2-shelfware";
+            else if (tpSt === 1 && this.scopeMode === 'pe_tp') cls = "ws-badge--l2-parent-owned";
+            else                 cls = "ws-badge--l2-whitespace";
+            return `<span class="ws-badge ${cls}">${esc(l2)}</span>`;
+          }).join("");
+          l2Html = `<hr class="ws-cov-cell__divider"><div class="ws-cov-cell__l2s">${pills}</div>`;
+        }
+
+        const isSelected = this.selectedAcctSA === i;
+        const selStyle = isSelected ? "outline:2px solid var(--sapSelectedColor,#0070f2);outline-offset:-2px;" : "";
+
+        html += `<div class="ws-cov-cell" data-li="${i}" style="cursor:pointer;${selStyle}">
+          ${header}
+          ${l2Html}
+        </div>`;
+      });
+      el.innerHTML = html;
+
+      el.querySelectorAll(".ws-cov-cell[data-li]").forEach(cell => {
+        cell.addEventListener("click", () => {
+          const idx = +cell.dataset.li;
+          this.selectedAcctSA = this.selectedAcctSA === idx ? null : idx;
+          this.renderCoverageGrid();
+        });
+      });
+    },
+
+    // ── PAGINATION helper ─────────────────────────────────────────────────
+    renderPagination(containerId, currentPage, totalPages, onPage) {
+      const el = document.getElementById(containerId);
+      if (!el) return;
+      if (totalPages <= 1) { el.innerHTML = ""; return; }
+      let html = `<button class="ws-pagination__btn" ${currentPage <= 1 ? "disabled" : ""} data-p="${currentPage-1}">‹ Prev</button>`;
+      // Show window of pages
+      const start = Math.max(1, currentPage - 2);
+      const end   = Math.min(totalPages, currentPage + 2);
+      if (start > 1) html += `<button class="ws-pagination__btn" data-p="1">1</button><span class="ws-pagination__info">…</span>`;
+      for (let p = start; p <= end; p++) {
+        const active = p === currentPage ? "style='font-weight:700;background:var(--sapSelectedColor,#0070f2);color:#fff'" : "";
+        html += `<button class="ws-pagination__btn" data-p="${p}" ${active}>${p}</button>`;
+      }
+      if (end < totalPages) html += `<span class="ws-pagination__info">…</span><button class="ws-pagination__btn" data-p="${totalPages}">${totalPages}</button>`;
+      html += `<button class="ws-pagination__btn" ${currentPage >= totalPages ? "disabled" : ""} data-p="${currentPage+1}">Next ›</button>`;
+      html += `<span class="ws-pagination__info">${currentPage} / ${totalPages}</span>`;
+      el.innerHTML = html;
+      el.querySelectorAll("button[data-p]").forEach(btn => {
+        btn.addEventListener("click", () => { onPage(+btn.dataset.p); });
+      });
+    },
+  },
+
+  mounted() {
+    this._closeDropdown = () => { this.openDropdown = null; this.openPortfolioDropdown = null; };
+    document.addEventListener('click', this._closeDropdown);
+    this.renderOverview();
+  },
+
+  unmounted() {
+    document.removeEventListener('click', this._closeDropdown);
+  },
+});
+
+app.mount("#app");
+</script>
+</body>
+</html>
